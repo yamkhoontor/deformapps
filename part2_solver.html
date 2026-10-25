@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Part II Solver: Deformation Monitoring and Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2F4EF; --sheet:#FFFFFF; --ink:#1E2B3A; --pencil:#5E6B66; --grid:#D9DFD5;
+  --staff:#B3261E; --ok:#2F6B4F; --accent-soft:#E7ECE4; --focus:#2B5C8A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+    --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+  --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-weight:650;line-height:1.2;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 48px}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+header.top h1{font-size:clamp(1.5rem,3vw,2.1rem)}
+header.top p{margin:4px 0 0;color:var(--pencil);max-width:60ch}
+.theme-btn{background:none;border:1px solid var(--grid);color:var(--ink);border-radius:6px;padding:6px 10px;font:inherit;font-size:.85rem;cursor:pointer}
+.layout{display:grid;grid-template-columns:230px 1fr;gap:24px;align-items:start}
+nav.rail{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:2px}
+nav.rail button{display:grid;grid-template-columns:2.2em 1fr;align-items:baseline;text-align:left;background:none;border:0;border-left:3px solid transparent;
+  color:var(--ink);font:inherit;font-size:.95rem;padding:8px 10px;cursor:pointer;border-radius:0 6px 6px 0}
+nav.rail button .n{font-family:"Source Serif 4",Georgia,serif;color:var(--pencil);font-weight:650}
+nav.rail button[aria-selected="true"]{border-left-color:var(--staff);background:var(--accent-soft)}
+nav.rail button[aria-selected="true"] .n{color:var(--staff)}
+nav.rail button:hover{background:var(--accent-soft)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.panel{display:none}
+.panel.active{display:block}
+.panel h2{font-size:1.5rem;margin-bottom:4px}
+.panel .q{color:var(--pencil);margin:0 0 16px;max-width:70ch}
+.cols{display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:20px;align-items:start}
+.inputs{background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px}
+.inputs label{display:block;font-size:.85rem;color:var(--pencil);margin:10px 0 4px}
+.inputs label:first-child{margin-top:0}
+.inputs input,.inputs select,.inputs textarea{width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--grid);border-radius:6px;padding:7px 9px}
+.inputs textarea{min-height:120px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.reset{margin-top:14px;background:none;border:1px solid var(--grid);color:var(--ink);font:inherit;font-size:.85rem;padding:6px 10px;border-radius:6px;cursor:pointer;width:100%}
+/* the field-book working sheet: ruled lines and a red margin */
+.sheet{position:relative;background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px 18px 18px 46px;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--grid) 27px,var(--grid) 28px);
+  background-position:0 10px;min-height:200px;overflow-x:auto}
+.sheet::before{content:"";position:absolute;top:0;bottom:0;left:30px;width:2px;background:var(--staff);opacity:.7}
+.sheet .step{margin:0 0 6px;line-height:28px}
+.sheet .step b{font-weight:600}
+.sheet .eq{font-family:"Source Serif 4",Georgia,serif;font-size:1.05rem}
+.sheet .verdict{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:4px;font-weight:600}
+.verdict.yes{color:#fff;background:var(--staff)}
+.verdict.no{color:#fff;background:var(--ok)}
+:root[data-theme="dark"] .verdict.yes,:root[data-theme="dark"] .verdict.no{color:#131A1F}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .verdict.yes,:root:not([data-theme="light"]) .verdict.no{color:#131A1F}}
+table.t{border-collapse:collapse;margin:6px 0 10px;font-size:.95rem;background:var(--sheet)}
+table.t th,table.t td{border:1px solid var(--grid);padding:4px 10px;text-align:right}
+table.t th{font-weight:600;color:var(--pencil);text-align:center}
+table.t td:first-child,table.t th:first-child{text-align:left}
+.note{color:var(--pencil);font-size:.9rem;margin-top:8px}
+svg.plot{width:100%;max-width:420px;height:auto;display:block;margin:8px 0}
+.plot .axis{stroke:var(--pencil);stroke-width:1}
+.plot .gridl{stroke:var(--grid);stroke-width:1}
+.plot .ell1{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .ell2{fill:none;stroke:var(--staff);stroke-width:2;stroke-dasharray:6 4}
+.plot .pt{fill:var(--staff)}
+.plot text{fill:var(--pencil);font-size:11px;font-family:"Public Sans",system-ui,sans-serif}
+.plot .curve{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .tail{fill:var(--staff);opacity:.25}
+.plot .zline{stroke:var(--staff);stroke-width:2}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;flex-direction:row;overflow-x:auto;background:var(--paper);padding:6px 0;border-bottom:1px solid var(--grid)}
+  nav.rail button{grid-template-columns:auto auto;gap:6px;white-space:nowrap;border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0}
+  nav.rail button[aria-selected="true"]{border-bottom-color:var(--staff)}
+  .cols{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.inputs .reset+.reset{margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Part II Solver</h1>
+    <p>Calculators for the Part II exercises of <i>Deformation Monitoring and Analysis</i>: least squares, sequential updating and variance components. Each opens with the exercise values; change any number to see the working update.</p>
+  </div>
+  <button class="theme-btn" id="themeBtn" type="button">Switch theme</button>
+</header>
+
+<div class="layout">
+<nav class="rail" role="tablist" aria-label="Exercises">
+  <button role="tab" data-p="p1" aria-selected="true"><span class="n">1</span><span>Levelling weights</span></button>
+  <button role="tab" data-p="p2"><span class="n">2, 4</span><span>Levelling adjustment</span></button>
+  <button role="tab" data-p="p3"><span class="n">3</span><span>Redundancy and conditions</span></button>
+  <button role="tab" data-p="p5"><span class="n">5, 7</span><span>Sequential update</span></button>
+  <button role="tab" data-p="p6"><span class="n">6</span><span>Linearization</span></button>
+  <button role="tab" data-p="p8"><span class="n">8</span><span>Iterative VCE</span></button>
+  <button role="tab" data-p="p9"><span class="n">9</span><span>Variance factors</span></button>
+</nav>
+
+<main>
+<!-- Exercise 1 -->
+<section class="panel active" id="p1" role="tabpanel">
+  <h2>Levelling weights</h2>
+  <p class="q">Exercise 1: lines of 0.5, 1.2 and 2.0 km with σ<sub>km</sub> = 1.5 mm/√km. Find each σ and its weight, taking 1 km as unit weight.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="a1L">Line lengths (km), one per line or comma-separated</label>
+      <textarea id="a1L">0.5, 1.2, 2.0</textarea>
+      <div class="row2">
+        <div><label for="a1s">σ per km (mm)</label><input id="a1s" type="number" step="0.1" min="0" value="1.5"></div>
+        <div><label for="a1u">Unit-weight length (km)</label><input id="a1u" type="number" step="0.1" min="0" value="1"></div>
+      </div>
+      <button class="reset" data-reset="p1" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o1" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercises 2 and 4 -->
+<section class="panel" id="p2" role="tabpanel">
+  <h2>Levelling network adjustment</h2>
+  <p class="q">Exercise 2: re-adjust Example 4.3 with equal weights. Exercise 4: does the global test pass with σ0 = 1 mm/√km, and what is the smallest σ0 that passes?</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="a2l">Lines: from, to, height difference (m), length (km)</label>
+      <textarea id="a2l">A, B, 1.002, 1.0
+B, C, 2.004, 1.0
+A, C, 3.000, 2.0</textarea>
+      <label for="a2f">Fixed heights: point = height (m)</label>
+      <textarea id="a2f" style="min-height:52px">A = 100.000</textarea>
+      <label for="a2w">Weights</label>
+      <select id="a2w"><option value="len">Inverse of length (p = 1/L)</option><option value="eq" selected>Equal (p = 1)</option></select>
+      <div class="row2">
+        <div><label for="a2s">A priori σ0 (mm)</label><input id="a2s" type="number" step="0.1" min="0" value="2.0"></div>
+        <div><label for="a2c">Confidence</label><select id="a2c"><option value="0.95" selected>95%</option><option value="0.99">99%</option></select></div>
+      </div>
+      <button class="reset" data-reset="p2" type="button">Restore Exercise 2 values</button>
+      <button class="reset" data-preset="ex4" type="button">Load Exercise 4 values</button>
+    </div>
+    <div class="sheet" id="o2" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 3 -->
+<section class="panel" id="p3" role="tabpanel">
+  <h2>Redundancy and condition equations</h2>
+  <p class="q">Exercise 3: 12 observations and 7 unknown coordinates, no datum defect. How many independent condition equations are needed?</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row3">
+        <div><label for="a3n">Observations n</label><input id="a3n" type="number" min="0" step="1" value="12"></div>
+        <div><label for="a3u">Unknowns u</label><input id="a3u" type="number" min="0" step="1" value="7"></div>
+        <div><label for="a3d">Datum defect d</label><input id="a3d" type="number" min="0" step="1" value="0"></div>
+      </div>
+      <button class="reset" data-reset="p3" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o3" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercises 5 and 7 -->
+<section class="panel" id="p5" role="tabpanel">
+  <h2>Sequential update and innovation test</h2>
+  <p class="q">Exercise 5: add a second A → C line (+3.004 m, 2 km, weight 0.5) to the Example 4.3 solution. Exercise 7: what innovation would just fail the test?</p>
+  <div class="cols">
+    <div class="inputs">
+      <label>Existing solution x̂₁ (m)</label>
+      <div class="row2">
+        <div><label for="a5x1">H<sub>B</sub></label><input id="a5x1" type="number" step="0.0001" value="101.0005"></div>
+        <div><label for="a5x2">H<sub>C</sub></label><input id="a5x2" type="number" step="0.0001" value="103.0030"></div>
+      </div>
+      <label>Cofactor matrix Q₁</label>
+      <div class="row3">
+        <div><label for="a5q11">q11</label><input id="a5q11" type="number" step="0.01" value="0.75"></div>
+        <div><label for="a5q12">q12</label><input id="a5q12" type="number" step="0.01" value="0.50"></div>
+        <div><label for="a5q22">q22</label><input id="a5q22" type="number" step="0.01" value="1.00"></div>
+      </div>
+      <label>New observation: coefficients of H<sub>B</sub>, H<sub>C</sub>, value (m), weight</label>
+      <div class="row2">
+        <div><label for="a5a1">a1</label><input id="a5a1" type="number" step="1" value="0"></div>
+        <div><label for="a5a2">a2</label><input id="a5a2" type="number" step="1" value="1"></div>
+      </div>
+      <div class="row2">
+        <div><label for="a5l">Value (m)</label><input id="a5l" type="number" step="0.001" value="103.004"></div>
+        <div><label for="a5p">Weight</label><input id="a5p" type="number" step="0.1" min="0" value="0.5"></div>
+      </div>
+      <div class="row2">
+        <div><label for="a5om">Ω₁ = vᵀPv (mm²)</label><input id="a5om" type="number" step="0.01" value="9.00"></div>
+        <div><label for="a5s">σ0 (mm)</label><input id="a5s" type="number" step="0.1" min="0" value="2.0"></div>
+      </div>
+      <button class="reset" data-reset="p5" type="button">Restore Exercise 5 values</button>
+      <button class="reset" data-preset="ex7" type="button">Load Exercise 7 values</button>
+    </div>
+    <div class="sheet" id="o5" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 6 -->
+<section class="panel" id="p6" role="tabpanel">
+  <h2>Linearization coefficients</h2>
+  <p class="q">Exercise 6: pillar S(20, 30), approximate target (80, 110). Write down the distance coefficients.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label>From point i (x = East, y = North, m)</label>
+      <div class="row2">
+        <div><label for="a6xi">x<sub>i</sub></label><input id="a6xi" type="number" step="0.001" value="20"></div>
+        <div><label for="a6yi">y<sub>i</sub></label><input id="a6yi" type="number" step="0.001" value="30"></div>
+      </div>
+      <label>To point j (approximate)</label>
+      <div class="row2">
+        <div><label for="a6xj">x<sub>j</sub></label><input id="a6xj" type="number" step="0.001" value="80"></div>
+        <div><label for="a6yj">y<sub>j</sub></label><input id="a6yj" type="number" step="0.001" value="110"></div>
+      </div>
+      <label for="a6m">Measured distance (m), optional</label><input id="a6m" type="number" step="0.0001" value="">
+      <button class="reset" data-reset="p6" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o6" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 8 -->
+<section class="panel" id="p8" role="tabpanel">
+  <h2>Iterative variance component estimation</h2>
+  <p class="q">Exercise 8 and Example 6.3: two instruments measure the same baseline. Watch the redundancy shares change as the weights are re-estimated.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="a8A">Instrument A readings (m)</label><textarea id="a8A" style="min-height:70px">100.002, 99.998, 100.001, 99.999</textarea>
+      <label for="a8B">Instrument B readings (m)</label><textarea id="a8B" style="min-height:70px">100.006, 99.993, 100.004, 99.997</textarea>
+      <div class="row2">
+        <div><label for="a8sA">A priori σ<sub>A</sub> (mm)</label><input id="a8sA" type="number" step="0.1" min="0" value="2.0"></div>
+        <div><label for="a8sB">A priori σ<sub>B</sub> (mm)</label><input id="a8sB" type="number" step="0.1" min="0" value="2.0"></div>
+      </div>
+      <button class="reset" data-reset="p8" type="button">Restore example values</button>
+    </div>
+    <div class="sheet" id="o8" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 9 -->
+<section class="panel" id="p9" role="tabpanel">
+  <h2>Variance factors from group residuals</h2>
+  <p class="q">Exercise 9: directions give vᵀPv = 24.0 with r₁ = 12.0; distances give 3.0 with r₂ = 6.0. Compute the first-iteration factors.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="a9g">Groups: name, vᵀPv, group redundancy r<sub>i</sub>, a priori σ (optional)</label>
+      <textarea id="a9g">Directions, 24.0, 12.0, 1.0
+Distances, 3.0, 6.0, 2.0</textarea>
+      <button class="reset" data-reset="p9" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o9" aria-live="polite"></div>
+  </div>
+</section>
+</main>
+</div>
+<p class="note">All computations run in your browser. Critical values are computed from the χ² distribution, not looked up from tables.</p>
+</div>
+
+<script>
+// ---------- statistics ----------
+function normInv(p){ // Acklam's algorithm
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pl=0.02425,ph=1-pl; let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p<=ph){q=p-0.5;r=q*q;return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+function gammaln(x){const g=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let y=x,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=g[j]/++y;return -t+Math.log(2.5066282746310005*s/x);}
+function gammaP(a,x){ if(x<=0)return 0;
+  if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<500;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-14)break;}return sum*Math.exp(-x+a*Math.log(x)-gammaln(a));}
+  let b=x+1-a,c=1/1e-300,d=1/b,h=d;for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-14)break;}
+  return 1-Math.exp(-x+a*Math.log(x)-gammaln(a))*h;}
+function chi2cdf(x,k){return gammaP(k/2,x/2);}
+function chi2inv(p,k){let lo=0,hi=k+60*Math.sqrt(2*k)+60;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(chi2cdf(m,k)<p)lo=m;else hi=m;}return (lo+hi)/2;}
+function normPdf(x){return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI);}
+
+// ---------- helpers ----------
+const $=id=>document.getElementById(id);
+const num=id=>parseFloat($(id).value);
+function f(x,d=2){ if(!isFinite(x))return "–"; const s=(Math.abs(x)<0.5*Math.pow(10,-d)?0:x).toFixed(d); return s.replace("-","−");}
+function sg(x,d=2){const t=f(x,d);return (x>0&&parseFloat(t)!==0?"+":"")+t;}
+function pct(a){return (a*100).toString().replace(/\.0+$/,"")+"%";}
+const step=(html)=>`<p class="step">${html}</p>`;
+function bad(msg){return step(`<b>Check the inputs:</b> ${msg}`);}
+const nums=txt=>txt.split(/[\s,;]+/).map(s=>s.trim()).filter(Boolean).map(Number).filter(isFinite);
+function solveLinear(M,b){const n=b.length,A=M.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;for(let r=0;r<n;r++){if(r===c)continue;const k=A[r][c]/A[c][c];for(let j=c;j<=n;j++)A[r][j]-=k*A[c][j];}}
+  return A.map((r,i)=>r[n]/r[i]);}
+function inv(M){const n=M.length,R=M.map(()=>Array(n).fill(0));for(let j=0;j<n;j++){const col=solveLinear(M,M.map((_,i)=>i===j?1:0));if(!col)return null;col.forEach((v,i)=>R[i][j]=v);}return R;}
+const fracs=[[0,"0"],[1,"1"],[0.5,"1/2"],[0.25,"1/4"],[0.75,"3/4"],[1/3,"1/3"],[2/3,"2/3"],[1/6,"1/6"],[5/6,"5/6"]];
+const qf=q=>{const c=fracs.find(([v])=>Math.abs(v-q)<1e-9);return c?`${f(q,3)} (${c[1]})`:f(q,3);};
+
+// ---------- Exercise 1 ----------
+function r1(){
+  const L=nums($("a1L").value),s=num("a1s"),u=num("a1u");
+  if(!L.length||!(s>0)||!(u>0)||L.some(x=>x<=0)){ $("o1").innerHTML=bad("enter positive line lengths, σ per km and unit-weight length."); return;}
+  const s0=s*Math.sqrt(u);
+  const rows=L.map((x,i)=>`<tr><td>${i+1}</td><td>${f(x,2)}</td><td>${f(s*Math.sqrt(x),2)}</td><td>${f(s0*s0/(s*s*x),3)}</td></tr>`).join("");
+  $("o1").innerHTML=
+    step(`<b>Step 1.</b> Standard deviation of a line of length L: <span class="eq">σ = σ<sub>km</sub>√L = ${f(s,2)}√L mm</span>`)+
+    step(`<b>Step 2.</b> Unit weight: a ${f(u,2)} km line, so <span class="eq">σ0 = ${f(s,2)} × √${f(u,2)} = ${f(s0,3)} mm</span>`)+
+    step(`<b>Step 3.</b> Weight: <span class="eq">p = σ0² / σ² = ${f(u,2)} / L</span>`)+
+    `<table class="t"><tr><th>Line</th><th>L (km)</th><th>σ (mm)</th><th>Weight p</th></tr>${rows}</table>`+
+    `<p class="note">Longer lines are less precise and receive less weight, in inverse proportion to their length.</p>`;
+}
+
+// ---------- Exercises 2 and 4 ----------
+function r2(){
+  const lines=$("a2l").value.split("\n").map(l=>l.split(/[,;\t]+/).map(s=>s.trim())).filter(a=>a.length>=3&&a[0]&&a[1]).map(a=>({fr:a[0],to:a[1],h:parseFloat(a[2]),L:a[3]!==undefined&&a[3]!==""?parseFloat(a[3]):1}));
+  const fixed={};$("a2f").value.split(/\n|;/).forEach(t=>{const m=t.split("=");if(m.length===2&&m[0].trim()&&isFinite(parseFloat(m[1])))fixed[m[0].trim()]=parseFloat(m[1]);});
+  const eq=$("a2w").value==="eq",sig0=num("a2s"),cl=parseFloat($("a2c").value);
+  if(!lines.length||lines.some(l=>!isFinite(l.h)||!(l.L>0))){ $("o2").innerHTML=bad("enter each line as from, to, height difference, length."); return;}
+  if(!Object.keys(fixed).length){ $("o2").innerHTML=bad("fix at least one height, for example A = 100.000."); return;}
+  const pts=[...new Set(lines.flatMap(l=>[l.fr,l.to]))], unk=pts.filter(p=>!(p in fixed));
+  if(!unk.length){ $("o2").innerHTML=bad("all points are fixed; nothing to adjust."); return;}
+  const n=lines.length,u=unk.length,r=n-u;
+  const A=lines.map(l=>unk.map(p=>(p===l.to?1:0)-(p===l.fr?1:0)));
+  const lr=lines.map(l=>l.h+(l.fr in fixed?fixed[l.fr]:0)-(l.to in fixed?fixed[l.to]:0));
+  const p=lines.map(l=>eq?1:1/l.L);
+  const N=unk.map((_,a)=>unk.map((_,b)=>A.reduce((s,row,i)=>s+row[a]*p[i]*row[b],0)));
+  const U=unk.map((_,a)=>A.reduce((s,row,i)=>s+row[a]*p[i]*lr[i],0));
+  const Ni=inv(N); if(!Ni){ $("o2").innerHTML=bad("the network is not connected to a fixed point."); return;}
+  const x=Ni.map(row=>row.reduce((s,v,j)=>s+v*U[j],0));
+  const v=A.map((row,i)=>row.reduce((s,a,j)=>s+a*x[j],0)-lr[i]);
+  const vmm=v.map(e=>e*1000), Om=vmm.reduce((s,e,i)=>s+p[i]*e*e,0);
+  const qvv=A.map((row,i)=>1/p[i]-row.reduce((s,a,j)=>s+a*row.reduce((t,b,k)=>t+Ni[j][k]*b,0),0));
+  const ri=qvv.map((q,i)=>q*p[i]);
+  const ptxt=p.map(x=>f(x,3)).join(", ");
+  let out=step(`<b>Step 1.</b> ${n} observations, ${u} unknown${u>1?'s':''} (${unk.join(", ")}), redundancy r = ${n} − ${u} = <b>${r}</b>. Weights: ${eq?'all equal to 1':`p = 1/L: ${ptxt}`}.`);
+  const Nt=`<table class="t"><tr><th>N</th>${unk.map(q=>`<th>${q}</th>`).join("")}<th>AᵀPl</th></tr>${unk.map((q,a)=>`<tr><td>${q}</td>${N[a].map(e=>`<td>${f(e,3)}</td>`).join("")}<td>${f(U[a],3)}</td></tr>`).join("")}</table>`;
+  out+=step(`<b>Step 2.</b> Normal equations N x̂ = AᵀPl:`)+Nt;
+  out+=step(`<b>Step 3.</b> Adjusted heights:`)+`<table class="t"><tr><th>Point</th><th>Height (m)</th><th>σ (mm)</th></tr>${unk.map((q,a)=>`<tr><td>${q}</td><td>${f(x[a],4)}</td><td>${f(sig0*Math.sqrt(Ni[a][a]),2)}</td></tr>`).join("")}</table>`;
+  out+=step(`<b>Step 4.</b> Residuals and redundancy numbers:`)+`<table class="t"><tr><th>Line</th><th>v (mm)</th><th>p·v² (mm²)</th><th>r<sub>i</sub></th><th>w</th></tr>${lines.map((l,i)=>`<tr><td>${l.fr} → ${l.to}</td><td>${sg(vmm[i],2)}</td><td>${f(p[i]*vmm[i]**2,2)}</td><td>${f(ri[i],3)}</td><td>${qvv[i]>1e-12?f(vmm[i]/(sig0*Math.sqrt(qvv[i])),2):'–'}</td></tr>`).join("")}<tr><td>Sum</td><td></td><td>${f(Om,2)}</td><td>${f(ri.reduce((a,b)=>a+b,0),3)}</td><td></td></tr></table>`;
+  if(r>0){
+    const T=Om/(sig0*sig0),c=chi2inv(cl,r),s02=Om/r,minS=Math.sqrt(Om/c);
+    out+=step(`<b>Step 5.</b> Variance factor: s0² = ${f(Om,2)} / ${r} = ${f(s02,3)} mm², s0 = ${f(Math.sqrt(s02),2)} mm`)+
+      step(`<b>Step 6.</b> Global test: <span class="eq">T = vᵀPv / σ0² = ${f(Om,2)} / ${f(sig0*sig0,2)} = <b>${f(T,2)}</b></span>; χ²<sub>${r}</sub> at ${pct(cl)} = ${f(c,2)}`)+
+      `<span class="verdict ${T>c?'yes':'no'}">${T>c?'Model rejected':'Model accepted'}</span>`+
+      step(`Smallest a priori σ0 that passes: √(${f(Om,2)} / ${f(c,2)}) = <b>${f(minS,2)} mm</b>`);
+  } else out+=step(`No redundancy: the global test cannot be applied.`);
+  $("o2").innerHTML=out;
+}
+
+// ---------- Exercise 3 ----------
+function r3(){
+  const n=Math.round(num("a3n")),u=Math.round(num("a3u")),d=Math.round(num("a3d"))||0;
+  if(!(n>=0&&u>=0&&d>=0)){ $("o3").innerHTML=bad("enter whole numbers."); return;}
+  const r=n-(u-d);
+  $("o3").innerHTML=
+    step(`<b>Step 1.</b> Unknowns that the observations must determine: u − d = ${u} − ${d} = ${u-d}`)+
+    step(`<b>Step 2.</b> Redundancy: r = n − (u − d) = ${n} − ${u-d} = <b>${r}</b>`)+
+    step(r>0?`The condition model needs <b>${r}</b> independent condition equation${r>1?'s':''}, and solves a ${r} × ${r} system; the parametric model solves a ${u-d} × ${u-d} system.`:r===0?`No conditions: the observations are exactly enough, with no check.`:`The network is under-determined by ${-r} observation${r<-1?'s':''}.`);
+}
+
+// ---------- Exercises 5 and 7 ----------
+function r5(){
+  const x=[num("a5x1"),num("a5x2")],Q=[[num("a5q11"),num("a5q12")],[num("a5q12"),num("a5q22")]],a=[num("a5a1"),num("a5a2")],l=num("a5l"),p=num("a5p"),Om=num("a5om"),s0=num("a5s");
+  if([...x,...a,l,p,Om,s0,Q[0][0],Q[0][1],Q[1][1]].some(v=>!isFinite(v))||!(p>0)||!(s0>0)){ $("o5").innerHTML=bad("fill in every field; weight and σ0 must be positive."); return;}
+  const pred=a[0]*x[0]+a[1]*x[1], d=(l-pred)*1000;
+  const Qa=[Q[0][0]*a[0]+Q[0][1]*a[1],Q[1][0]*a[0]+Q[1][1]*a[1]];
+  const S=1/p+a[0]*Qa[0]+a[1]*Qa[1], K=[Qa[0]/S,Qa[1]/S];
+  const x2=[x[0]+K[0]*d/1000,x[1]+K[1]*d/1000];
+  const Q2=[[Q[0][0]-K[0]*Qa[0],Q[0][1]-K[0]*Qa[1]],[Q[1][0]-K[1]*Qa[0],Q[1][1]-K[1]*Qa[1]]];
+  const dOm=d*d/S, T=dOm/(s0*s0), c=chi2inv(0.95,1), dcrit=Math.sqrt(c*S*s0*s0);
+  $("o5").innerHTML=
+    step(`<b>Step 1.</b> Prediction: a·x̂₁ = ${f(pred,4)} m; innovation <span class="eq">d = ${f(l,4)} − ${f(pred,4)} = <b>${sg(d,2)} mm</b></span>`)+
+    step(`<b>Step 2.</b> <span class="eq">S = 1/p + a Q₁ aᵀ = ${f(1/p,3)} + ${f(S-1/p,3)} = <b>${f(S,3)}</b></span>`)+
+    step(`<b>Step 3.</b> Gain: <span class="eq">K = Q₁ aᵀ / S = (${f(Qa[0],3)}, ${f(Qa[1],3)}) / ${f(S,3)} = (<b>${f(K[0],3)}</b>, <b>${f(K[1],3)}</b>)</span>`)+
+    `<table class="t"><tr><th></th><th>Before</th><th>Change K·d</th><th>After</th></tr>
+      <tr><td>H<sub>B</sub> (m)</td><td>${f(x[0],4)}</td><td>${sg(K[0]*d,2)} mm</td><td>${f(x2[0],4)}</td></tr>
+      <tr><td>H<sub>C</sub> (m)</td><td>${f(x[1],4)}</td><td>${sg(K[1]*d,2)} mm</td><td>${f(x2[1],4)}</td></tr>
+      <tr><td>q11, q12, q22</td><td>${f(Q[0][0],3)}, ${f(Q[0][1],3)}, ${f(Q[1][1],3)}</td><td></td><td>${f(Q2[0][0],3)}, ${f(Q2[0][1],3)}, ${f(Q2[1][1],3)}</td></tr>
+      <tr><td>Ω (mm²)</td><td>${f(Om,2)}</td><td>${sg(dOm,2)}</td><td>${f(Om+dOm,2)}</td></tr></table>`+
+    step(`<b>Step 4.</b> Innovation test: <span class="eq">T = d² / (S σ0²) = ${f(d*d,2)} / (${f(S,3)} × ${f(s0*s0,2)}) = <b>${f(T,3)}</b></span>; χ²<sub>1</sub> at 95% = ${f(c,2)}`)+
+    `<span class="verdict ${T>c?'yes':'no'}">${T>c?'New observation inconsistent: blunder or movement':'New observation consistent'}</span>`+
+    step(`<b>Exercise 7.</b> The test just fails when <span class="eq">|d| = √(${f(c,2)} × ${f(S,3)} × ${f(s0*s0,2)}) = <b>${f(dcrit,2)} mm</b></span>`);
+}
+
+// ---------- Exercise 6 ----------
+function r6(){
+  const xi=num("a6xi"),yi=num("a6yi"),xj=num("a6xj"),yj=num("a6yj"),m=num("a6m");
+  const dx=xj-xi,dy=yj-yi,d0=Math.hypot(dx,dy);
+  if(!(d0>0)){ $("o6").innerHTML=bad("the two points must be different."); return;}
+  const cx=dx/d0,cy=dy/d0,bx=dy/(d0*d0),by=-dx/(d0*d0), az=(Math.atan2(dx,dy)*180/Math.PI+360)%360;
+  $("o6").innerHTML=
+    step(`<b>Step 1.</b> Δx = ${f(dx,3)} m, Δy = ${f(dy,3)} m, approximate distance <span class="eq">d₀ = √(Δx² + Δy²) = <b>${f(d0,3)} m</b></span>; bearing ${f(az,4)}°`)+
+    step(`<b>Step 2.</b> Distance coefficients = unit vector from i to j:`)+
+    `<table class="t"><tr><th>Observation</th><th>∂/∂x<sub>j</sub></th><th>∂/∂y<sub>j</sub></th><th>∂/∂x<sub>i</sub></th><th>∂/∂y<sub>i</sub></th></tr>
+      <tr><td>Distance</td><td>${f(cx,4)}</td><td>${f(cy,4)}</td><td>${f(-cx,4)}</td><td>${f(-cy,4)}</td></tr>
+      <tr><td>Bearing (rad per m)</td><td>${f(bx,6)}</td><td>${f(by,6)}</td><td>${f(-bx,6)}</td><td>${f(-by,6)}</td></tr>
+      <tr><td>Bearing (″ per mm)</td><td>${f(bx*206.264806,3)}</td><td>${f(by*206.264806,3)}</td><td>${f(-bx*206.264806,3)}</td><td>${f(-by*206.264806,3)}</td></tr></table>`+
+    (isFinite(m)?step(`<b>Step 3.</b> Reduced observation: measured − computed = ${f(m,4)} − ${f(d0,4)} = <b>${sg((m-d0)*1000,2)} mm</b>`):step(`Enter a measured distance to see the reduced observation l − f(x₀).`))+
+    `<p class="note">If the target is unknown and the pillar fixed, only the ∂/∂x<sub>j</sub>, ∂/∂y<sub>j</sub> columns enter the design matrix.</p>`;
+}
+
+// ---------- Exercise 8 ----------
+function r8(){
+  const A=nums($("a8A").value),B=nums($("a8B").value),sA=num("a8sA"),sB=num("a8sB");
+  if(A.length<2||B.length<2||!(sA>0&&sB>0)){ $("o8").innerHTML=bad("enter at least two readings per instrument and positive σ values."); return;}
+  const obs=[...A,...B],g=[...A.map(()=>0),...B.map(()=>1)];
+  let s2=[sA*sA,sB*sB],rows="",mean=0,it=0;
+  for(it=1;it<=30;it++){
+    const p=g.map(k=>1/s2[k]),Sp=p.reduce((a,b)=>a+b,0);
+    mean=obs.reduce((s,o,i)=>s+p[i]*o,0)/Sp;
+    const v=obs.map(o=>(mean-o)*1000), r=p.map(q=>1-q/Sp);
+    const om=[0,1].map(k=>v.reduce((s,e,i)=>s+(g[i]===k?p[i]*e*e:0),0)), rg=[0,1].map(k=>r.reduce((s,e,i)=>s+(g[i]===k?e:0),0));
+    const fac=[om[0]/rg[0],om[1]/rg[1]];
+    rows+=`<tr><td>${it}</td><td>${f(Math.sqrt(s2[0]),2)}</td><td>${f(Math.sqrt(s2[1]),2)}</td><td>${f(rg[0],2)}</td><td>${f(rg[1],2)}</td><td>${f(fac[0],3)}</td><td>${f(fac[1],3)}</td></tr>`;
+    s2=[s2[0]*fac[0],s2[1]*fac[1]];
+    if(Math.abs(fac[0]-1)<0.001&&Math.abs(fac[1]-1)<0.001)break;
+  }
+  const ratio=s2[0]/s2[1];
+  $("o8").innerHTML=
+    step(`<b>Method.</b> For each group: factor = vᵀPv / r<sub>group</sub>, where each reading's redundancy number is r<sub>j</sub> = 1 − p<sub>j</sub>/Σp. Multiply each group's variance by its factor and repeat until both factors are 1.`)+
+    `<table class="t"><tr><th>Iteration</th><th>σ<sub>A</sub> used</th><th>σ<sub>B</sub> used</th><th>r<sub>A</sub></th><th>r<sub>B</sub></th><th>Factor A</th><th>Factor B</th></tr>${rows}</table>`+
+    step(`<b>Result.</b> σ<sub>A</sub> = <b>${f(Math.sqrt(s2[0]),2)} mm</b>, σ<sub>B</sub> = <b>${f(Math.sqrt(s2[1]),2)} mm</b>; weighted mean ${f(mean,4)} m. Weight of B relative to A: ${f(ratio,3)}.`)+
+    `<p class="note">Exercise 8: as B's weight falls, each B reading has less influence on the mean, so its own residual absorbs more of its error and its redundancy number 1 − p/Σp rises towards 1. That is why r<sub>B</sub> grows from iteration 1 to 2.</p>`;
+}
+
+// ---------- Exercise 9 ----------
+function r9(){
+  const gs=$("a9g").value.split("\n").map(l=>l.split(/[,;\t]+/).map(s=>s.trim())).filter(a=>a.length>=3&&a[0]).map(a=>({n:a[0],om:parseFloat(a[1]),r:parseFloat(a[2]),s:a[3]!==undefined&&a[3]!==""?parseFloat(a[3]):NaN}));
+  if(!gs.length||gs.some(x=>!(x.om>=0)||!(x.r>0))){ $("o9").innerHTML=bad("enter each group as name, vᵀPv, group redundancy (and optionally σ)."); return;}
+  const rows=gs.map(x=>{const fct=x.om/x.r;return `<tr><td>${x.n}</td><td>${f(x.om,2)}</td><td>${f(x.r,2)}</td><td>${f(fct,3)}</td><td>${f(Math.sqrt(fct),3)}</td><td>${isFinite(x.s)?f(x.s*Math.sqrt(fct),3):'–'}</td><td>${fct>1.05?'Too optimistic':fct<0.95?'Too pessimistic':'About right'}</td></tr>`;}).join("");
+  const rt=gs.reduce((a,x)=>a+x.r,0);
+  $("o9").innerHTML=
+    step(`<b>Step 1.</b> For each group: <span class="eq">σ̂<sub>i</sub>² = vᵢᵀPᵢvᵢ / rᵢ</span>`)+
+    `<table class="t"><tr><th>Group</th><th>vᵀPv</th><th>r<sub>i</sub></th><th>Factor σ̂²</th><th>Scale on σ</th><th>New σ</th><th>A priori weights were</th></tr>${rows}</table>`+
+    step(`<b>Step 2.</b> Multiply each group's a priori variances by its factor (σ by the square root), re-adjust and repeat until all factors are close to 1. Total redundancy here: ${f(rt,1)}.`)+
+    `<p class="note">A factor above 1 means the group was weighted too optimistically; below 1, too pessimistically.</p>`;
+}
+
+// ---------- wiring ----------
+const renderers={p1:r1,p2:r2,p3:r3,p5:r5,p6:r6,p8:r8,p9:r9};
+const defaults={};
+document.querySelectorAll(".panel").forEach(p=>{defaults[p.id]={};p.querySelectorAll("input,select,textarea").forEach(el=>defaults[p.id][el.id]=el.value);
+  p.addEventListener("input",()=>renderers[p.id]());p.addEventListener("change",()=>renderers[p.id]());});
+document.querySelectorAll(".reset[data-reset]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.reset;Object.entries(defaults[id]).forEach(([k,v])=>$(k).value=v);renderers[id]();}));
+const presets={ex4:{a2w:"len",a2s:"1.0"},ex7:{a5x1:"101.0005",a5x2:"103.0030",a5q11:"0.75",a5q12:"0.50",a5q22:"1.00",a5a1:"1",a5a2:"0",a5l:"101.000",a5p:"1",a5om:"9.00",a5s:"2.0"}};
+document.querySelectorAll(".reset[data-preset]").forEach(b=>b.addEventListener("click",()=>{const pr=b.dataset.preset;Object.entries(presets[pr]).forEach(([k,v])=>$(k).value=v);(pr==="ex4"?r2:r5)();}));
+const tabs=[...document.querySelectorAll('nav.rail button')];
+function show(id){tabs.forEach(t=>t.setAttribute("aria-selected",t.dataset.p===id?"true":"false"));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===id));renderers[id]();
+  try{localStorage.setItem("p2solver-tab",id)}catch(e){}}
+tabs.forEach(t=>t.addEventListener("click",()=>show(t.dataset.p)));
+document.querySelector("nav.rail").addEventListener("keydown",e=>{const i=tabs.findIndex(t=>t.getAttribute("aria-selected")==="true");
+  if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();const n=tabs[(i+1)%tabs.length];show(n.dataset.p);n.focus();}
+  if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();const n=tabs[(i-1+tabs.length)%tabs.length];show(n.dataset.p);n.focus();}});
+const root=document.documentElement;
+try{const th=localStorage.getItem("p2solver-theme");if(th)root.setAttribute("data-theme",th);}catch(e){}
+$("themeBtn").addEventListener("click",()=>{const dark=root.getAttribute("data-theme")?root.getAttribute("data-theme")==="dark":matchMedia("(prefers-color-scheme: dark)").matches;
+  const next=dark?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("p2solver-theme",next)}catch(e){}});
+Object.values(renderers).forEach(fn=>fn());
+let start="p1";try{const s=localStorage.getItem("p2solver-tab");if(s&&renderers[s])start=s;}catch(e){}
+show(start);
+</script>
+</body>
+</html>

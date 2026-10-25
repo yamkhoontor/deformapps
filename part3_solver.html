@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Part III Solver: Deformation Monitoring and Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2F4EF; --sheet:#FFFFFF; --ink:#1E2B3A; --pencil:#5E6B66; --grid:#D9DFD5;
+  --staff:#B3261E; --ok:#2F6B4F; --accent-soft:#E7ECE4; --focus:#2B5C8A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+    --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+  --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-weight:650;line-height:1.2;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 48px}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+header.top h1{font-size:clamp(1.5rem,3vw,2.1rem)}
+header.top p{margin:4px 0 0;color:var(--pencil);max-width:60ch}
+.theme-btn{background:none;border:1px solid var(--grid);color:var(--ink);border-radius:6px;padding:6px 10px;font:inherit;font-size:.85rem;cursor:pointer}
+.layout{display:grid;grid-template-columns:230px 1fr;gap:24px;align-items:start}
+nav.rail{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:2px}
+nav.rail button{display:grid;grid-template-columns:2.2em 1fr;align-items:baseline;text-align:left;background:none;border:0;border-left:3px solid transparent;
+  color:var(--ink);font:inherit;font-size:.95rem;padding:8px 10px;cursor:pointer;border-radius:0 6px 6px 0}
+nav.rail button .n{font-family:"Source Serif 4",Georgia,serif;color:var(--pencil);font-weight:650}
+nav.rail button[aria-selected="true"]{border-left-color:var(--staff);background:var(--accent-soft)}
+nav.rail button[aria-selected="true"] .n{color:var(--staff)}
+nav.rail button:hover{background:var(--accent-soft)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.panel{display:none}
+.panel.active{display:block}
+.panel h2{font-size:1.5rem;margin-bottom:4px}
+.panel .q{color:var(--pencil);margin:0 0 16px;max-width:70ch}
+.cols{display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:20px;align-items:start}
+.inputs{background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px}
+.inputs label{display:block;font-size:.85rem;color:var(--pencil);margin:10px 0 4px}
+.inputs label:first-child{margin-top:0}
+.inputs input,.inputs select,.inputs textarea{width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--grid);border-radius:6px;padding:7px 9px}
+.inputs textarea{min-height:120px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.reset{margin-top:14px;background:none;border:1px solid var(--grid);color:var(--ink);font:inherit;font-size:.85rem;padding:6px 10px;border-radius:6px;cursor:pointer;width:100%}
+/* the field-book working sheet: ruled lines and a red margin */
+.sheet{position:relative;background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px 18px 18px 46px;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--grid) 27px,var(--grid) 28px);
+  background-position:0 10px;min-height:200px;overflow-x:auto}
+.sheet::before{content:"";position:absolute;top:0;bottom:0;left:30px;width:2px;background:var(--staff);opacity:.7}
+.sheet .step{margin:0 0 6px;line-height:28px}
+.sheet .step b{font-weight:600}
+.sheet .eq{font-family:"Source Serif 4",Georgia,serif;font-size:1.05rem}
+.sheet .verdict{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:4px;font-weight:600}
+.verdict.yes{color:#fff;background:var(--staff)}
+.verdict.no{color:#fff;background:var(--ok)}
+:root[data-theme="dark"] .verdict.yes,:root[data-theme="dark"] .verdict.no{color:#131A1F}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .verdict.yes,:root:not([data-theme="light"]) .verdict.no{color:#131A1F}}
+table.t{border-collapse:collapse;margin:6px 0 10px;font-size:.95rem;background:var(--sheet)}
+table.t th,table.t td{border:1px solid var(--grid);padding:4px 10px;text-align:right}
+table.t th{font-weight:600;color:var(--pencil);text-align:center}
+table.t td:first-child,table.t th:first-child{text-align:left}
+.note{color:var(--pencil);font-size:.9rem;margin-top:8px}
+svg.plot{width:100%;max-width:420px;height:auto;display:block;margin:8px 0}
+.plot .axis{stroke:var(--pencil);stroke-width:1}
+.plot .gridl{stroke:var(--grid);stroke-width:1}
+.plot .ell1{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .ell2{fill:none;stroke:var(--staff);stroke-width:2;stroke-dasharray:6 4}
+.plot .pt{fill:var(--staff)}
+.plot text{fill:var(--pencil);font-size:11px;font-family:"Public Sans",system-ui,sans-serif}
+.plot .curve{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .tail{fill:var(--staff);opacity:.25}
+.plot .zline{stroke:var(--staff);stroke-width:2}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;flex-direction:row;overflow-x:auto;background:var(--paper);padding:6px 0;border-bottom:1px solid var(--grid)}
+  nav.rail button{grid-template-columns:auto auto;gap:6px;white-space:nowrap;border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0}
+  nav.rail button[aria-selected="true"]{border-bottom-color:var(--staff)}
+  .cols{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.inputs .reset+.reset{margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Part III Solver</h1>
+    <p>Calculators for the Part III exercises of <i>Deformation Monitoring and Analysis</i>: datum defects, S-transformations, free networks and the congruency test. Each opens with the exercise values; change any number to see the working update.</p>
+  </div>
+  <button class="theme-btn" id="themeBtn" type="button">Switch theme</button>
+</header>
+
+<div class="layout">
+<nav class="rail" role="tablist" aria-label="Exercises">
+  <button role="tab" data-p="p1" aria-selected="true"><span class="n">1</span><span>Datum defect</span></button>
+  <button role="tab" data-p="p2"><span class="n">2, 4</span><span>S-transformation</span></button>
+  <button role="tab" data-p="p6"><span class="n">3, 6</span><span>Two-epoch explorer</span></button>
+  <button role="tab" data-p="p8"><span class="n">8</span><span>Congruency test</span></button>
+</nav>
+
+<main>
+<!-- Exercise 1 -->
+<section class="panel active" id="p1" role="tabpanel">
+  <h2>Datum defect</h2>
+  <p class="q">Exercise 1: state the datum defect for (a) a GNSS network with no fixed station; (b) a 2D network of directions and distances; (c) a levelling network with one benchmark fixed; (d) a 3D terrestrial network with levelled instruments.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="b1t">Network and observations</label>
+      <select id="b1t">
+        <option value="gnss" selected>GNSS baselines (3D)</option>
+        <option value="d2">2D, distances (with or without directions)</option>
+        <option value="a2">2D, angles or directions only</option>
+        <option value="az2">2D, distances and azimuths</option>
+        <option value="lev">Levelling (height differences)</option>
+        <option value="t3">3D terrestrial, levelled instruments</option>
+        <option value="f3">3D, no orientation or scale</option>
+      </select>
+      <label for="b1f">Datum parameters supplied by fixed points or constraints</label>
+      <input id="b1f" type="number" min="0" step="1" value="0">
+      <button class="reset" data-reset="p1" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o1" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercises 2 and 4 -->
+<section class="panel" id="p2" role="tabpanel">
+  <h2>S-transformation for levelling</h2>
+  <p class="q">Exercise 2: E and S for a three-point levelling network with the datum on points 1 and 2. Exercise 4: transform the R1–R2–R3 datum displacements into the R2–R3 datum.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="b2v">Points and values: name, value (one per line; value may be a height correction or displacement)</label>
+      <textarea id="b2v">1, 0
+2, 0
+3, 0</textarea>
+      <label for="b2d">Datum points (names, comma-separated)</label>
+      <input id="b2d" type="text" value="1, 2">
+      <button class="reset" data-reset="p2" type="button">Restore Exercise 2 values</button>
+      <button class="reset" data-preset="ex4" type="button">Load Exercise 4 values</button>
+    </div>
+    <div class="sheet" id="o2" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercises 3 and 6: explorer -->
+<section class="panel" id="p6" role="tabpanel">
+  <h2>Two-epoch explorer: the Part III network</h2>
+  <p class="q">The running example: benchmarks R1, R2, R3 and stud S, six levelled lines, two epochs. Exercise 3: compare the precisions of the datums. Exercise 6: what if R2 also rose 4 mm?</p>
+  <div class="cols">
+    <div class="inputs">
+      <label>Lines: R1→R2, R2→R3, R3→R1, R1→S, R2→S, R3→S</label>
+      <label for="b6e1">Epoch 1 observations (m)</label>
+      <textarea id="b6e1" style="min-height:70px">0.5003, -0.7002, 0.2001, 0.1996, -0.2998, 0.4000</textarea>
+      <label for="b6e2">Epoch 2 observations (m)</label>
+      <textarea id="b6e2" style="min-height:70px">0.5049, -0.6997, 0.1948, 0.1972, -0.3083, 0.3921</textarea>
+      <label for="b6s">σ per line (mm)</label><input id="b6s" type="number" step="0.1" min="0" value="0.5">
+      <label>Generate epoch 2 from true movements (mm), with the book's random errors</label>
+      <div class="row2">
+        <div><label for="b6m1">R1</label><input id="b6m1" type="number" step="0.1" value="-5"></div>
+        <div><label for="b6m2">R2</label><input id="b6m2" type="number" step="0.1" value="0"></div>
+        <div><label for="b6m3">R3</label><input id="b6m3" type="number" step="0.1" value="0"></div>
+        <div><label for="b6m4">S</label><input id="b6m4" type="number" step="0.1" value="-8"></div>
+      </div>
+      <button class="reset" id="b6gen" type="button">Generate epoch 2</button>
+      <button class="reset" data-reset="p6" type="button">Restore book data</button>
+      <button class="reset" data-preset="ex6" type="button">Load Exercise 6 (R2 also +4 mm)</button>
+    </div>
+    <div class="sheet" id="o6" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 8 -->
+<section class="panel" id="p8" role="tabpanel">
+  <h2>Global congruency test</h2>
+  <p class="q">Exercise 8: dᵀQ⁺d = 3.2 mm² for a levelling network of 5 points, σ0 = 0.5 mm. Has it deformed at 95%?</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="b8o">Ω = dᵀQ<sub>dd</sub>⁺d (mm²)</label><input id="b8o" type="number" step="0.01" min="0" value="3.2">
+      <div class="row2">
+        <div><label for="b8p">Points</label><input id="b8p" type="number" min="2" step="1" value="5"></div>
+        <div><label for="b8t">Network</label><select id="b8t"><option value="1" selected>Levelling (d = 1)</option><option value="2">2D distances (d = 3)</option><option value="2a">2D angles only (d = 4)</option><option value="3">GNSS 3D (d = 3)</option></select></div>
+      </div>
+      <label for="b8m">Variance factor</label>
+      <select id="b8m"><option value="known" selected>A priori σ0 known (χ² test)</option><option value="est">Estimated s0² with f degrees of freedom (F-test)</option></select>
+      <div class="row2">
+        <div><label for="b8s">σ0 or s0 (mm)</label><input id="b8s" type="number" step="0.01" min="0" value="0.5"></div>
+        <div><label for="b8f">f (for F-test)</label><input id="b8f" type="number" min="1" step="1" value="6"></div>
+      </div>
+      <label for="b8a">Significance level α</label>
+      <select id="b8a"><option value="0.10">10%</option><option value="0.05" selected>5%</option><option value="0.01">1%</option></select>
+      <button class="reset" data-reset="p8" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o8" aria-live="polite"></div>
+  </div>
+</section>
+</main>
+</div>
+<p class="note">All computations run in your browser. Critical values are computed from the χ² and F distributions, not looked up from tables.</p>
+</div>
+
+<script>
+// ---------- statistics ----------
+function normInv(p){ // Acklam's algorithm
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pl=0.02425,ph=1-pl; let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p<=ph){q=p-0.5;r=q*q;return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+function gammaln(x){const g=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let y=x,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=g[j]/++y;return -t+Math.log(2.5066282746310005*s/x);}
+function gammaP(a,x){ if(x<=0)return 0;
+  if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<500;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-14)break;}return sum*Math.exp(-x+a*Math.log(x)-gammaln(a));}
+  let b=x+1-a,c=1/1e-300,d=1/b,h=d;for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-14)break;}
+  return 1-Math.exp(-x+a*Math.log(x)-gammaln(a))*h;}
+function chi2cdf(x,k){return gammaP(k/2,x/2);}
+function chi2inv(p,k){let lo=0,hi=k+60*Math.sqrt(2*k)+60;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(chi2cdf(m,k)<p)lo=m;else hi=m;}return (lo+hi)/2;}
+function normPdf(x){return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI);}
+
+// ---------- extra statistics: F distribution ----------
+function betacf(a,b,x){const MAXIT=300,EPS=3e-14,FPMIN=1e-300;let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;if(Math.abs(d)<FPMIN)d=FPMIN;d=1/d;let h=d;
+  for(let m=1;m<=MAXIT;m++){const m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<EPS)break;}return h;}
+function betai(a,b,x){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(gammaln(a+b)-gammaln(a)-gammaln(b)+a*Math.log(x)+b*Math.log(1-x));
+  return x<(a+1)/(a+b+2)?bt*betacf(a,b,x)/a:1-bt*betacf(b,a,1-x)/b;}
+function fcdf(x,d1,d2){return x<=0?0:betai(d1/2,d2/2,d1*x/(d1*x+d2));}
+function finv(p,d1,d2){let lo=0,hi=1;while(fcdf(hi,d1,d2)<p)hi*=2;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(fcdf(m,d1,d2)<p)lo=m;else hi=m;}return (lo+hi)/2;}
+
+// ---------- helpers ----------
+const $=id=>document.getElementById(id);
+const num=id=>parseFloat($(id).value);
+function f(x,d=2){ if(!isFinite(x))return "–"; const s=(Math.abs(x)<0.5*Math.pow(10,-d)?0:x).toFixed(d); return s.replace("-","−");}
+function sg(x,d=2){const t=f(x,d);return (x>0&&parseFloat(t)!==0?"+":"")+t;}
+function pct(a){return (a*100).toString().replace(/\.0+$/,"")+"%";}
+const step=(html)=>`<p class="step">${html}</p>`;
+function bad(msg){return step(`<b>Check the inputs:</b> ${msg}`);}
+const nums=txt=>txt.split(/[\s,;]+/).map(s=>s.trim()).filter(Boolean).map(Number).filter(isFinite);
+function solveLinear(M,b){const n=b.length,A=M.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;for(let r=0;r<n;r++){if(r===c)continue;const k=A[r][c]/A[c][c];for(let j=c;j<=n;j++)A[r][j]-=k*A[c][j];}}
+  return A.map((r,i)=>r[n]/r[i]);}
+function inv(M){const n=M.length,R=M.map(()=>Array(n).fill(0));for(let j=0;j<n;j++){const col=solveLinear(M,M.map((_,i)=>i===j?1:0));if(!col)return null;col.forEach((v,i)=>R[i][j]=v);}return R;}
+const fracs=[[0,"0"],[1,"1"],[0.5,"1/2"],[-0.5,"−1/2"],[1/3,"1/3"],[-1/3,"−1/3"],[2/3,"2/3"],[0.25,"1/4"],[-0.25,"−1/4"],[0.75,"3/4"],[0.2,"1/5"],[-0.2,"−1/5"],[0.8,"4/5"]];
+const fr=q=>{const c=fracs.find(([v])=>Math.abs(v-q)<1e-9);return c?c[1]:f(q,3);};
+
+// ---------- Exercise 1 ----------
+const NET={lev:{d:1,what:"height origin"},d2:{d:3,what:"2 shifts and a rotation"},a2:{d:4,what:"2 shifts, a rotation and scale"},
+  az2:{d:2,what:"2 shifts"},gnss:{d:3,what:"3 shifts (baselines fix orientation and scale)"},t3:{d:4,what:"3 shifts and a rotation about the vertical"},f3:{d:7,what:"3 shifts, 3 rotations and scale"}};
+function r1(){
+  const t=NET[$("b1t").value],fx=Math.max(0,Math.round(num("b1f"))||0),rem=Math.max(0,t.d-fx);
+  $("o1").innerHTML=
+    step(`<b>Step 1.</b> Undetermined by the observations: ${t.what}, so the datum defect is <b>d = ${t.d}</b>.`)+
+    step(`<b>Step 2.</b> Datum parameters supplied externally: ${fx}. Remaining defect: <b>${rem}</b>${fx>t.d?' (more constraints than needed: the extra ones would distort the network)':''}.`)+
+    `<table class="t"><tr><th>Exercise 1</th><th>Network</th><th>d</th></tr>
+      <tr><td>(a)</td><td>GNSS baselines, no fixed station</td><td>3</td></tr>
+      <tr><td>(b)</td><td>2D directions and distances</td><td>3</td></tr>
+      <tr><td>(c)</td><td>Levelling with one benchmark fixed</td><td>1 − 1 = 0</td></tr>
+      <tr><td>(d)</td><td>3D terrestrial, levelled instruments</td><td>4</td></tr></table>`+
+    `<p class="note">For (c), choose Levelling and enter 1 datum parameter supplied.</p>`;
+}
+
+// ---------- Exercises 2 and 4 ----------
+function r2(){
+  const pts=$("b2v").value.split("\n").map(l=>l.split(/[,;\t]+/).map(s=>s.trim())).filter(a=>a[0]).map(a=>({n:a[0],v:a[1]!==undefined&&a[1]!==""?parseFloat(a[1]):0}));
+  const dat=$("b2d").value.split(/[,;\s]+/).map(s=>s.trim()).filter(Boolean);
+  const w=pts.map(p=>dat.includes(p.n)?1:0),k=w.reduce((a,b)=>a+b,0),n=pts.length;
+  if(n<2||pts.some(p=>!isFinite(p.v))){ $("o2").innerHTML=bad("enter at least two points as name, value."); return;}
+  if(!k){ $("o2").innerHTML=bad("choose at least one datum point from the list."); return;}
+  const S=pts.map((_,i)=>pts.map((_,j)=>(i===j?1:0)-w[j]/k));
+  const v=pts.map(p=>p.v), mean=v.reduce((s,x,i)=>s+w[i]*x,0)/k, out=v.map(x=>x-mean);
+  const hdr=pts.map(p=>`<th>${p.n}</th>`).join("");
+  $("o2").innerHTML=
+    step(`<b>Step 1.</b> Levelling null space: E<sup>T</sup> = [${pts.map(()=>1).join(" ")}]; selection W = diag(${w.join(", ")}); E<sup>T</sup>WE = ${k}`)+
+    step(`<b>Step 2.</b> <span class="eq">S = I − E (E<sup>T</sup>WE)<sup>−1</sup> E<sup>T</sup>W = I − (1/${k}) · 1 · w<sup>T</sup></span>`)+
+    `<table class="t"><tr><th>S</th>${hdr}</tr>${pts.map((p,i)=>`<tr><td>${p.n}</td>${S[i].map(e=>`<td>${fr(e)}</td>`).join("")}</tr>`).join("")}</table>`+
+    step(`<b>Step 3.</b> Applying S subtracts the mean of the datum points (${dat.filter(d=>pts.some(p=>p.n===d)).join(", ")}) from every value: mean = ${f(mean,3)}`)+
+    `<table class="t"><tr><th>Point</th><th>Before</th><th>After</th></tr>${pts.map((p,i)=>`<tr><td>${p.n}${w[i]?' (datum)':''}</td><td>${sg(p.v,2)}</td><td>${sg(out[i],2)}</td></tr>`).join("")}</table>`+
+    `<p class="note">After the transformation, the values of the datum points sum to zero. Values that differ only by a datum shift give identical results.</p>`;
+}
+
+// ---------- Exercises 3 and 6: explorer ----------
+const PN=["R1","R2","R3","S"], LINES=[[0,1],[1,2],[2,0],[0,3],[1,3],[2,3]];
+const AM=LINES.map(([i,j])=>[0,1,2,3].map(k=>(k===j?1:0)-(k===i?1:0)));
+const H0=[10.000,10.500,9.800,10.200], NOISE2=[-0.1,0.3,-0.2,0.2,-0.3,0.1];
+const NN=[0,1,2,3].map(a=>[0,1,2,3].map(b=>AM.reduce((s,r)=>s+r[a]*r[b],0)));
+function adjust(l,w){ // returns corrections (mm) to H0 and Q
+  const lr=AM.map((r,i)=>(l[i]-r.reduce((s,a,k)=>s+a*H0[k],0))*1000);
+  const M=[...NN.map((row,i)=>[...row,w[i]]),[...w,0]];
+  const rhs=[...[0,1,2,3].map(a=>AM.reduce((s,r,i)=>s+r[a]*lr[i],0)),0];
+  const Mi=inv(M); const x=Mi.map(row=>row.reduce((s,v,j)=>s+v*rhs[j],0)).slice(0,4);
+  const Q=Mi.slice(0,4).map(r=>r.slice(0,4)); const v=AM.map((r,i)=>r.reduce((s,a,k)=>s+a*x[k],0)-lr[i]);
+  return {x,Q,v};}
+function quad(d,Q,idx,nvec){ // d^T Q^+ d on the sub-block idx; nvec = null vector of that block (defaults to ones)
+  const k=idx.length,n=nvec||idx.map(()=>1),nn=n.reduce((s,x)=>s+x*x,0);
+  const dR=idx.map(i=>d[i]),QR=idx.map((i,a)=>idx.map((j,b)=>Q[i][j]+n[a]*n[b]/nn));const Qi=inv(QR);if(!Qi)return NaN;
+  let s=0;for(let a=0;a<k;a++)for(let b=0;b<k;b++)s+=dR[a]*(Qi[a][b]-n[a]*n[b]/nn)*dR[b];return s;}
+function twoEpoch(l1,l2,idx){const w=[0,1,2,3].map(i=>idx.includes(i)?1:0);const a=adjust(l1,w),b=adjust(l2,w);
+  const d=a.x.map((x,i)=>b.x[i]-x),Q=a.Q.map((r,i)=>r.map((q,j)=>q+b.Q[i][j]));return {d,Q,a,b};}
+function r6(){
+  const l1=nums($("b6e1").value),l2=nums($("b6e2").value),s=num("b6s");
+  if(l1.length!==6||l2.length!==6||!(s>0)){ $("o6").innerHTML=bad("enter six observations for each epoch, in the order shown, and a positive σ."); return;}
+  const s2=s*s, c3=chi2inv(0.95,3), c2=chi2inv(0.95,2), c1=chi2inv(0.95,1);
+  const e1=adjust(l1,[1,1,1,1]),e2=adjust(l2,[1,1,1,1]);
+  const g1=e1.v.reduce((a,x)=>a+x*x,0)/s2,g2=e2.v.reduce((a,x)=>a+x*x,0)/s2;
+  let out=step(`<b>Step 1. Each epoch alone</b> (residuals are the same in every datum): global test T = ${f(g1,2)} and ${f(g2,2)} against χ²<sub>3</sub> = ${f(c3,2)}: ${g1<=c3&&g2<=c3?'both accepted':'<b>check for blunders</b>'}.`);
+  // Exercise 3: precision by datum
+  const datums=[["Fix R1",[0]],["Free network",[0,1,2,3]],["R1, R2, R3",[0,1,2]],["R2, R3",[1,2]]];
+  out+=step(`<b>Step 2. Epoch 1 precision in each datum</b> (Exercise 3):`)+`<table class="t"><tr><th>Datum</th>${PN.map(p=>`<th>σ ${p}</th>`).join("")}<th>Sum of variances</th></tr>`+
+    datums.map(([nm,idx])=>{const w=[0,1,2,3].map(i=>idx.includes(i)?1:0),a=adjust(l1,w),tr=a.Q.reduce((t,r,i)=>t+r[i],0)*s2;
+      return `<tr><td>${nm}</td>${a.Q.map((r,i)=>`<td>${f(s*Math.sqrt(Math.max(r[i],0)),2)}</td>`).join("")}<td>${f(tr,3)}</td></tr>`;}).join("")+`</table>`+
+    `<p class="note">The free network has the smallest sum of variances (minimum trace); fixing one point gives it zero variance and pushes the uncertainty onto the others.</p>`;
+  // displacements
+  const rows=datums.map(([nm,idx])=>{const t=twoEpoch(l1,l2,idx);const w=[0,1,2,3].map(i=>idx.includes(i)?1:0);return [nm,t.d,quad(t.d,t.Q,[0,1,2,3],w)/s2];});
+  const r123=twoEpoch(l1,l2,[0,1,2]); const dR=r123.d.slice(0,3); const sorted=[...dR].sort((a,b)=>a-b),med=sorted[1];
+  const medd=r123.d.map(x=>x-med);
+  out+=step(`<b>Step 3. Displacements between epochs (mm)</b> in each datum:`)+`<table class="t"><tr><th>Datum</th>${PN.map(p=>`<th>${p}</th>`).join("")}<th>T</th></tr>`+
+    rows.map(([nm,d,T])=>`<tr><td>${nm}</td>${d.map(x=>`<td>${sg(x,2)}</td>`).join("")}<td>${f(T,1)}</td></tr>`).join("")+
+    `<tr><td>L1 (median) datum</td>${medd.map(x=>`<td>${sg(x,2)}</td>`).join("")}<td>${f(rows[0][2],1)}</td></tr></table>`+
+    step(`The congruency statistic T is the same in every datum: <b>${f(rows[0][2],1)}</b> against χ²<sub>3</sub> = ${f(c3,2)}.`)+
+    `<span class="verdict ${rows[0][2]>c3?'yes':'no'}">${rows[0][2]>c3?'The network has deformed':'No significant deformation'}</span>`;
+  // reference tests
+  const Tref=quad(r123.d,r123.Q,[0,1,2])/s2;
+  const pairs=[[0,1],[0,2],[1,2]].map(idx=>{const t=twoEpoch(l1,l2,idx);return {idx,T:quad(t.d,t.Q,idx)/s2,d:t.d,Q:t.Q};});
+  out+=step(`<b>Step 4. Are the benchmarks stable?</b> Reference block R1, R2, R3: T = ${f(Tref,2)} against χ²<sub>2</sub> = ${f(c2,2)}: ${Tref>c2?'<b>not congruent</b>':'congruent'}.`)+
+    `<table class="t"><tr><th>Pair (own datum)</th><th>T</th><th>χ²<sub>1</sub></th><th>Congruent?</th></tr>${pairs.map(p=>`<tr><td>${p.idx.map(i=>PN[i]).join(", ")}</td><td>${f(p.T,2)}</td><td>${f(c1,2)}</td><td>${p.T<=c1?'Yes':'No'}</td></tr>`).join("")}</table>`;
+  let concl;
+  if(Tref<=c2) concl=`All three benchmarks agree: use the R1, R2, R3 datum.`;
+  else{ const ok=pairs.filter(p=>p.T<=c1);
+    if(ok.length===1){const p=ok[0];const bad=[0,1,2].find(i=>!p.idx.includes(i));
+      concl=`Only ${p.idx.map(i=>PN[i]).join(" and ")} agree, so <b>${PN[bad]} is unstable</b>. Final displacements in the ${p.idx.map(i=>PN[i]).join("–")} datum: `+PN.map((n,i)=>`${n} ${sg(p.d[i],2)} ± ${f(s*Math.sqrt(p.Q[i][i]),2)}`).join(", ")+` mm.`;}
+    else if(ok.length===0) concl=`<b>No pair of benchmarks agrees.</b> The data cannot identify a stable group. The median datum above may still land on a stable point, but nothing in the statistics confirms it: more benchmarks are needed.`;
+    else concl=`Several pairs agree; the stable group is ambiguous. Inspect the displacements and consider more benchmarks.`;}
+  out+=step(`<b>Conclusion.</b> ${concl}`);
+  $("o6").innerHTML=out;
+}
+function genEpoch2(){
+  const m=[num("b6m1"),num("b6m2"),num("b6m3"),num("b6m4")];
+  if(m.some(x=>!isFinite(x)))return;
+  const l2=AM.map((r,i)=>Math.round((r.reduce((s,a,k)=>s+a*(H0[k]+m[k]/1000),0)+NOISE2[i]/1000)*10000)/10000);
+  $("b6e2").value=l2.map(x=>x.toFixed(4)).join(", "); r6();
+}
+
+// ---------- Exercise 8 ----------
+function r8(){
+  const om=num("b8o"),p=Math.round(num("b8p")),t=$("b8t").value,mode=$("b8m").value,s=num("b8s"),fd=Math.round(num("b8f")),a=parseFloat($("b8a").value);
+  const dim={"1":1,"2":2,"2a":2,"3":3}[t], d={"1":1,"2":3,"2a":4,"3":3}[t], h=p*dim-d;
+  if(!(om>=0&&p>=2&&s>0&&h>=1)){ $("o8").innerHTML=bad("enter Ω ≥ 0, enough points and a positive σ."); return;}
+  let out=step(`<b>Step 1.</b> Degrees of freedom of the test: h = rank(Q<sub>dd</sub>) = u − d = ${p} × ${dim} − ${d} = <b>${h}</b>`);
+  if(mode==="known"){const T=om/(s*s),c=chi2inv(1-a,h);
+    out+=step(`<b>Step 2.</b> <span class="eq">T = Ω / σ0² = ${f(om,2)} / ${f(s*s,3)} = <b>${f(T,2)}</b></span>`)+
+      step(`<b>Step 3.</b> χ²<sub>${h}</sub> at ${pct(1-a)}: ${f(c,2)}. ${T>c?`${f(T,2)} > ${f(c,2)}`:`${f(T,2)} ≤ ${f(c,2)}`}.`)+
+      `<span class="verdict ${T>c?'yes':'no'}">${T>c?'The network has deformed':'No significant deformation'}</span>`;}
+  else{ if(!(fd>=1)){ $("o8").innerHTML=bad("f must be at least 1."); return;}
+    const F=om/(h*s*s),c=finv(1-a,h,fd);
+    out+=step(`<b>Step 2.</b> <span class="eq">F = Ω / (h · s0²) = ${f(om,2)} / (${h} × ${f(s*s,3)}) = <b>${f(F,2)}</b></span>`)+
+      step(`<b>Step 3.</b> F<sub>${h}, ${fd}</sub> at ${pct(1-a)}: ${f(c,2)}. ${F>c?`${f(F,2)} > ${f(c,2)}`:`${f(F,2)} ≤ ${f(c,2)}`}.`)+
+      `<span class="verdict ${F>c?'yes':'no'}">${F>c?'The network has deformed':'No significant deformation'}</span>`;}
+  out+=`<p class="note">Ω is datum-invariant, so the test can be done in the free-network datum without assuming any point is stable.</p>`;
+  $("o8").innerHTML=out;
+}
+
+// ---------- wiring ----------
+const renderers={p1:r1,p2:r2,p6:r6,p8:r8};
+const defaults={};
+document.querySelectorAll(".panel").forEach(p=>{defaults[p.id]={};p.querySelectorAll("input,select,textarea").forEach(el=>defaults[p.id][el.id]=el.value);
+  p.addEventListener("input",e=>{if(!/^b6m/.test(e.target.id))renderers[p.id]();});p.addEventListener("change",e=>{if(!/^b6m/.test(e.target.id))renderers[p.id]();});});
+document.querySelectorAll(".reset[data-reset]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.reset;Object.entries(defaults[id]).forEach(([k,v])=>$(k).value=v);renderers[id]();}));
+$("b6gen").addEventListener("click",genEpoch2);
+const presets={ex4:()=>{$("b2v").value="R1, -3.44\nR2, 1.58\nR3, 1.86\nS, -6.27";$("b2d").value="R2, R3";r2();},
+  ex6:()=>{$("b6m1").value="-5";$("b6m2").value="4";$("b6m3").value="0";$("b6m4").value="-8";genEpoch2();}};
+document.querySelectorAll(".reset[data-preset]").forEach(b=>b.addEventListener("click",()=>presets[b.dataset.preset]()));
+const tabs=[...document.querySelectorAll('nav.rail button')];
+function show(id){tabs.forEach(t=>t.setAttribute("aria-selected",t.dataset.p===id?"true":"false"));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===id));renderers[id]();
+  try{localStorage.setItem("p3solver-tab",id)}catch(e){}}
+tabs.forEach(t=>t.addEventListener("click",()=>show(t.dataset.p)));
+document.querySelector("nav.rail").addEventListener("keydown",e=>{const i=tabs.findIndex(t=>t.getAttribute("aria-selected")==="true");
+  if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();const n=tabs[(i+1)%tabs.length];show(n.dataset.p);n.focus();}
+  if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();const n=tabs[(i-1+tabs.length)%tabs.length];show(n.dataset.p);n.focus();}});
+const root=document.documentElement;
+try{const th=localStorage.getItem("p3solver-theme");if(th)root.setAttribute("data-theme",th);}catch(e){}
+$("themeBtn").addEventListener("click",()=>{const dark=root.getAttribute("data-theme")?root.getAttribute("data-theme")==="dark":matchMedia("(prefers-color-scheme: dark)").matches;
+  const next=dark?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("p3solver-theme",next)}catch(e){}});
+Object.values(renderers).forEach(fn=>fn());
+let start="p1";try{const s=localStorage.getItem("p3solver-tab");if(s&&renderers[s])start=s;}catch(e){}
+show(start);
+</script>
+</body>
+</html>
