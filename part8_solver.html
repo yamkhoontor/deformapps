@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Yam Khoon Tor. All rights reserved.
+  Companion app to "Deformation Monitoring and Analysis: Theory, Methods and
+  Practice for Surveyors and Engineers". Not to be copied for others,
+  redistributed, sold or published, in original or modified form, without
+  the written permission of the author. See COPYRIGHT.txt.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Part VIII Solver: Deformation Monitoring and Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2F4EF; --sheet:#FFFFFF; --ink:#1E2B3A; --pencil:#5E6B66; --grid:#D9DFD5;
+  --staff:#B3261E; --ok:#2F6B4F; --accent-soft:#E7ECE4; --focus:#2B5C8A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+    --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+  --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-weight:650;line-height:1.2;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 48px}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+header.top h1{font-size:clamp(1.5rem,3vw,2.1rem)}
+header.top p{margin:4px 0 0;color:var(--pencil);max-width:60ch}
+.theme-btn{background:none;border:1px solid var(--grid);color:var(--ink);border-radius:6px;padding:6px 10px;font:inherit;font-size:.85rem;cursor:pointer}
+.layout{display:grid;grid-template-columns:230px 1fr;gap:24px;align-items:start}
+nav.rail{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:2px}
+nav.rail button{display:grid;grid-template-columns:2.2em 1fr;align-items:baseline;text-align:left;background:none;border:0;border-left:3px solid transparent;
+  color:var(--ink);font:inherit;font-size:.95rem;padding:8px 10px;cursor:pointer;border-radius:0 6px 6px 0}
+nav.rail button .n{font-family:"Source Serif 4",Georgia,serif;color:var(--pencil);font-weight:650}
+nav.rail button[aria-selected="true"]{border-left-color:var(--staff);background:var(--accent-soft)}
+nav.rail button[aria-selected="true"] .n{color:var(--staff)}
+nav.rail button:hover{background:var(--accent-soft)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.panel{display:none}
+.panel.active{display:block}
+.panel h2{font-size:1.5rem;margin-bottom:4px}
+.panel .q{color:var(--pencil);margin:0 0 16px;max-width:70ch}
+.cols{display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:20px;align-items:start}
+.inputs{background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px}
+.inputs label{display:block;font-size:.85rem;color:var(--pencil);margin:10px 0 4px}
+.inputs label:first-child{margin-top:0}
+.inputs input,.inputs select,.inputs textarea{width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--grid);border-radius:6px;padding:7px 9px}
+.inputs textarea{min-height:120px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.reset{margin-top:14px;background:none;border:1px solid var(--grid);color:var(--ink);font:inherit;font-size:.85rem;padding:6px 10px;border-radius:6px;cursor:pointer;width:100%}
+/* the field-book working sheet: ruled lines and a red margin */
+.sheet{position:relative;background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px 18px 18px 46px;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--grid) 27px,var(--grid) 28px);
+  background-position:0 10px;min-height:200px;overflow-x:auto}
+.sheet::before{content:"";position:absolute;top:0;bottom:0;left:30px;width:2px;background:var(--staff);opacity:.7}
+.sheet .step{margin:0 0 6px;line-height:28px}
+.sheet .step b{font-weight:600}
+.sheet .eq{font-family:"Source Serif 4",Georgia,serif;font-size:1.05rem}
+.sheet .verdict{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:4px;font-weight:600}
+.verdict.yes{color:#fff;background:var(--staff)}
+.verdict.no{color:#fff;background:var(--ok)}
+:root[data-theme="dark"] .verdict.yes,:root[data-theme="dark"] .verdict.no{color:#131A1F}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .verdict.yes,:root:not([data-theme="light"]) .verdict.no{color:#131A1F}}
+table.t{border-collapse:collapse;margin:6px 0 10px;font-size:.95rem;background:var(--sheet)}
+table.t th,table.t td{border:1px solid var(--grid);padding:4px 10px;text-align:right}
+table.t th{font-weight:600;color:var(--pencil);text-align:center}
+table.t td:first-child,table.t th:first-child{text-align:left}
+.note{color:var(--pencil);font-size:.9rem;margin-top:8px}
+svg.plot{width:100%;max-width:420px;height:auto;display:block;margin:8px 0}
+.plot .axis{stroke:var(--pencil);stroke-width:1}
+.plot .gridl{stroke:var(--grid);stroke-width:1}
+.plot .ell1{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .ell2{fill:none;stroke:var(--staff);stroke-width:2;stroke-dasharray:6 4}
+.plot .pt{fill:var(--staff)}
+.plot text{fill:var(--pencil);font-size:11px;font-family:"Public Sans",system-ui,sans-serif}
+.plot .curve{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .tail{fill:var(--staff);opacity:.25}
+.plot .zline{stroke:var(--staff);stroke-width:2}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;flex-direction:row;overflow-x:auto;background:var(--paper);padding:6px 0;border-bottom:1px solid var(--grid)}
+  nav.rail button{grid-template-columns:auto auto;gap:6px;white-space:nowrap;border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0}
+  nav.rail button[aria-selected="true"]{border-bottom-color:var(--staff)}
+  .cols{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.inputs .reset+.reset{margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Part VIII Solver</h1>
+    <p>Calculators for the Part VIII exercises of <i>Deformation Monitoring and Analysis</i>: sensors, network design, epoch frequency, tunnel convergence and statistical tables. Each opens with the exercise values; change any number to see the working update.</p>
+  </div>
+  <button class="theme-btn" id="themeBtn" type="button">Switch theme</button>
+</header>
+
+<div class="layout">
+<nav class="rail" role="tablist" aria-label="Exercises">
+  <button role="tab" data-p="p1" aria-selected="true"><span class="n">1</span><span>Laser scanning LoD</span></button>
+  <button role="tab" data-p="p2"><span class="n">2</span><span>InSAR line of sight</span></button>
+  <button role="tab" data-p="p3"><span class="n">3</span><span>Network design</span></button>
+  <button role="tab" data-p="p4"><span class="n">4</span><span>Epoch frequency</span></button>
+  <button role="tab" data-p="p5"><span class="n">5</span><span>Tunnel convergence</span></button>
+  <button role="tab" data-p="p6"><span class="n">6</span><span>Statistical tables</span></button>
+</nav>
+
+<main>
+<!-- Exercise 1 -->
+<section class="panel active" id="p1" role="tabpanel">
+  <h2>Level of detection for laser scanning (M3C2)</h2>
+  <p class="q">Exercise 1: roughness 4 mm, 30 points per cylinder in each epoch, registration error 1.5 mm. Compute the 95% level of detection.</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row2">
+        <div><label for="h1s1">Roughness σ1 (mm)</label><input id="h1s1" type="number" step="0.1" min="0" value="4"></div>
+        <div><label for="h1s2">Roughness σ2 (mm)</label><input id="h1s2" type="number" step="0.1" min="0" value="4"></div>
+      </div>
+      <div class="row2">
+        <div><label for="h1n1">Points n1</label><input id="h1n1" type="number" step="1" min="1" value="30"></div>
+        <div><label for="h1n2">Points n2</label><input id="h1n2" type="number" step="1" min="1" value="30"></div>
+      </div>
+      <div class="row2">
+        <div><label for="h1r">Registration error (mm)</label><input id="h1r" type="number" step="0.1" min="0" value="1.5"></div>
+        <div><label for="h1c">Change measured (mm, optional)</label><input id="h1c" type="number" step="0.1" value="4.0"></div>
+      </div>
+      <button class="reset" data-reset="p1" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o1" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 2 -->
+<section class="panel" id="p2" role="tabpanel">
+  <h2>InSAR: line of sight to vertical</h2>
+  <p class="q">Exercise 2: +5 mm line-of-sight displacement (towards the satellite) with incidence angle 35°, assuming purely vertical motion.</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row2">
+        <div><label for="h2d">LOS displacement (mm, + towards satellite)</label><input id="h2d" type="number" step="0.1" value="5"></div>
+        <div><label for="h2a">Incidence angle θ (degrees)</label><input id="h2a" type="number" step="0.5" min="0" max="80" value="35"></div>
+      </div>
+      <label for="h2s">σ of the LOS value (mm, optional)</label><input id="h2s" type="number" step="0.1" min="0" value="1.0">
+      <button class="reset" data-reset="p2" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o2" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 3 -->
+<section class="panel" id="p3" role="tabpanel">
+  <h2>Pre-analysis of a levelling monitoring network</h2>
+  <p class="q">Exercise 3: why does Design A meet the precision requirement but still get rejected? Compare it with Design B (Section 28.2).</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="h3l">Lines: from, to (one per line)</label>
+      <textarea id="h3l" style="min-height:150px">R1, S1
+S1, S2
+S2, S3
+S3, S6
+S6, S5
+S5, S4
+S4, R2
+R2, R3
+R3, R1</textarea>
+      <label for="h3d">Datum (reference) points</label><input id="h3d" type="text" value="R1, R2, R3">
+      <div class="row2">
+        <div><label for="h3s">σ per line (mm)</label><input id="h3s" type="number" step="0.05" min="0" value="0.3"></div>
+        <div><label for="h3m">Movement to detect (mm)</label><input id="h3m" type="number" step="0.1" min="0" value="2.0"></div>
+      </div>
+      <button class="reset" data-reset="p3" type="button">Load Design A</button>
+      <button class="reset" data-preset="B" type="button">Load Design B</button>
+      <button class="reset" data-preset="C" type="button">Load Design C (B + R1 → S4)</button>
+    </div>
+    <div class="sheet" id="o3" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 4 -->
+<section class="panel" id="p4" role="tabpanel">
+  <h2>Monitoring interval</h2>
+  <p class="q">Exercise 4: Alert Level 20 mm, Work Suspension Level 30 mm, wall moving about 3 mm/week. What interval would you recommend?</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row2">
+        <div><label for="h4a">Alert Level (mm)</label><input id="h4a" type="number" step="1" min="0" value="20"></div>
+        <div><label for="h4x">Work Suspension Level (mm)</label><input id="h4x" type="number" step="1" min="0" value="30"></div>
+      </div>
+      <div class="row2">
+        <div><label for="h4v">Expected rate (mm/week)</label><input id="h4v" type="number" step="0.1" min="0" value="3"></div>
+        <div><label for="h4n">Epochs required between levels</label><input id="h4n" type="number" step="1" min="1" value="2"></div>
+      </div>
+      <label for="h4c">Current movement (mm, optional)</label><input id="h4c" type="number" step="0.1" min="0" value="12">
+      <button class="reset" data-reset="p4" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o4" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 5 -->
+<section class="panel" id="p5" role="tabpanel">
+  <h2>Tunnel convergence: radius and ovalisation</h2>
+  <p class="q">Exercise 5: why must the centre offsets x0, y0 be estimated even though they are not deformation? The data are the ring of Section 29.3.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="h5r1">Epoch 1 radii (mm), at equally spaced angles from the horizontal</label>
+      <textarea id="h5r1" style="min-height:60px">3000.4, 2999.7, 3000.5, 2999.8, 2999.6, 3000.3, 2999.5, 3000.2</textarea>
+      <label for="h5r2">Epoch 2 radii (mm)</label>
+      <textarea id="h5r2" style="min-height:60px">3003.2, 2998.8, 2992.8, 2996.7, 3000.8, 2997.2, 2995.2, 2999.5</textarea>
+      <label for="h5s">σ per radius (mm)</label><input id="h5s" type="number" step="0.1" min="0" value="0.5">
+      <label for="h5o">Angles not observed (degrees, optional)</label><input id="h5o" type="text" value="">
+      <label style="display:flex;gap:6px;align-items:center"><input id="h5c" type="checkbox" checked style="width:auto">Estimate centre offsets x0, y0</label>
+      <button class="reset" data-reset="p5" type="button">Restore example values</button>
+      <button class="reset" data-preset="offset" type="button">1 cm set-up offset, invert point missing</button>
+    </div>
+    <div class="sheet" id="o5" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 6 -->
+<section class="panel" id="p6" role="tabpanel">
+  <h2>Statistical tables on demand</h2>
+  <p class="q">Exercise 6: find the critical value for a congruency test with h = 3 and pooled redundancy f = 20. Any value from Appendix A can be computed here.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="h6d">Distribution</label>
+      <select id="h6d"><option value="F" selected>F (one-sided upper)</option><option value="chi">χ² (upper)</option><option value="t">Student's t (two-sided)</option><option value="z">Normal (two-sided)</option></select>
+      <div class="row2">
+        <div><label for="h6a">Degrees of freedom 1 (h, or r)</label><input id="h6a" type="number" step="1" min="1" value="3"></div>
+        <div><label for="h6b">Degrees of freedom 2 (f, for F)</label><input id="h6b" type="number" step="1" min="1" value="20"></div>
+      </div>
+      <label for="h6p">Confidence level</label>
+      <select id="h6p"><option value="0.90">90%</option><option value="0.95" selected>95%</option><option value="0.99">99%</option><option value="0.999">99.9%</option></select>
+      <label for="h6v">Test statistic to compare (optional)</label><input id="h6v" type="number" step="0.01" value="">
+      <button class="reset" data-reset="p6" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o6" aria-live="polite"></div>
+  </div>
+</section>
+</main>
+</div>
+<p class="note">All computations run in your browser. Critical values are computed from the distributions, not looked up from tables. Single-point elimination (Exercise 7) is in the Part V Solver.</p>
+<p class="note">Copyright © 2026 Yam Khoon Tor. All rights reserved. Companion to <i>Deformation Monitoring and Analysis: Theory, Methods and Practice for Surveyors and Engineers</i>. For the reader’s own study and professional work only; not to be copied for others, redistributed, sold or published, in original or modified form, without the author’s written permission. Results are for education and guidance and should be checked independently; the author accepts no liability for their use.</p>
+</div>
+
+<script>
+// ---------- statistics ----------
+function normInv(p){ // Acklam's algorithm
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pl=0.02425,ph=1-pl; let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p<=ph){q=p-0.5;r=q*q;return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+function gammaln(x){const g=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let y=x,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=g[j]/++y;return -t+Math.log(2.5066282746310005*s/x);}
+function gammaP(a,x){ if(x<=0)return 0;
+  if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<500;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-14)break;}return sum*Math.exp(-x+a*Math.log(x)-gammaln(a));}
+  let b=x+1-a,c=1/1e-300,d=1/b,h=d;for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-14)break;}
+  return 1-Math.exp(-x+a*Math.log(x)-gammaln(a))*h;}
+function chi2cdf(x,k){return gammaP(k/2,x/2);}
+function chi2inv(p,k){let lo=0,hi=k+60*Math.sqrt(2*k)+60;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(chi2cdf(m,k)<p)lo=m;else hi=m;}return (lo+hi)/2;}
+function normPdf(x){return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI);}
+
+// ---------- extra statistics: F distribution ----------
+function betacf(a,b,x){const MAXIT=300,EPS=3e-14,FPMIN=1e-300;let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;if(Math.abs(d)<FPMIN)d=FPMIN;d=1/d;let h=d;
+  for(let m=1;m<=MAXIT;m++){const m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<EPS)break;}return h;}
+function betai(a,b,x){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(gammaln(a+b)-gammaln(a)-gammaln(b)+a*Math.log(x)+b*Math.log(1-x));
+  return x<(a+1)/(a+b+2)?bt*betacf(a,b,x)/a:1-bt*betacf(b,a,1-x)/b;}
+function fcdf(x,d1,d2){return x<=0?0:betai(d1/2,d2/2,d1*x/(d1*x+d2));}
+function finv(p,d1,d2){let lo=0,hi=1;while(fcdf(hi,d1,d2)<p)hi*=2;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(fcdf(m,d1,d2)<p)lo=m;else hi=m;}return (lo+hi)/2;}
+
+// ---------- helpers ----------
+const $=id=>document.getElementById(id);
+const num=id=>parseFloat($(id).value);
+function f(x,d=2){ if(!isFinite(x))return "–"; const s=(Math.abs(x)<0.5*Math.pow(10,-d)?0:x).toFixed(d); return s.replace("-","−");}
+function sg(x,d=2){const t=f(x,d);return (x>0&&parseFloat(t)!==0?"+":"")+t;}
+function pct(a){return (a*100).toString().replace(/\.0+$/,"")+"%";}
+const step=(html)=>`<p class="step">${html}</p>`;
+function bad(msg){return step(`<b>Check the inputs:</b> ${msg}`);}
+const nums=txt=>txt.split(/[\s,;]+/).map(s=>s.trim()).filter(Boolean).map(Number).filter(isFinite);
+function solveLinear(M,b){const n=b.length,A=M.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;for(let r=0;r<n;r++){if(r===c)continue;const k=A[r][c]/A[c][c];for(let j=c;j<=n;j++)A[r][j]-=k*A[c][j];}}
+  return A.map((r,i)=>r[n]/r[i]);}
+function inv(M){const n=M.length,R=M.map(()=>Array(n).fill(0));for(let j=0;j<n;j++){const col=solveLinear(M,M.map((_,i)=>i===j?1:0));if(!col)return null;col.forEach((v,i)=>R[i][j]=v);}return R;}
+function tinv2(alpha,nu){let lo=0,hi=1;while(betai(nu/2,0.5,nu/(nu+hi*hi))>alpha)hi*=2;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(betai(nu/2,0.5,nu/(nu+m*m))>alpha)lo=m;else hi=m;}return (lo+hi)/2;}
+
+// ---------- Exercise 1 ----------
+function r1(){
+  const s1=num("h1s1"),s2=num("h1s2"),n1=Math.round(num("h1n1")),n2=Math.round(num("h1n2")),rg=num("h1r"),c=num("h1c");
+  if(!(s1>=0&&s2>=0&&n1>=1&&n2>=1&&rg>=0)){ $("o1").innerHTML=bad("enter non-negative roughness and registration, and at least one point per cylinder."); return;}
+  const sq=Math.sqrt(s1*s1/n1+s2*s2/n2),lod=1.96*sq+rg;
+  $("o1").innerHTML=
+    step(`<b>Step 1.</b> Precision of the difference of the two local means: <span class="eq">√(σ1²/n1 + σ2²/n2) = √(${f(s1*s1,2)}/${n1} + ${f(s2*s2,2)}/${n2}) = ${f(sq,3)} mm</span>`)+
+    step(`<b>Step 2.</b> <span class="eq">LoD<sub>95%</sub> = 1.96 × ${f(sq,3)} + ${f(rg,2)} = ${f(1.96*sq,2)} + ${f(rg,2)} = <b>${f(lod,2)} mm</b></span>`)+
+    (isFinite(c)?`<span class="verdict ${Math.abs(c)>lod?'yes':'no'}">${Math.abs(c)>lod?`A change of ${f(c,1)} mm is significant`:`A change of ${f(c,1)} mm cannot be claimed`}</span>`:"")+
+    step(`Share of the registration error in the LoD: <b>${f(100*rg/lod,0)}%</b>. Doubling the points per cylinder would reduce the first term only to ${f(1.96*sq/Math.SQRT2,2)} mm.`)+
+    `<p class="note">The registration term does not shrink with more points: registering both scans to stable targets is the scanning version of the datum problem.</p>`;
+}
+
+// ---------- Exercise 2 ----------
+function r2(){
+  const d=num("h2d"),a=num("h2a"),s=num("h2s");
+  if(!isFinite(d)||!(a>=0&&a<89)){ $("o2").innerHTML=bad("enter the LOS displacement and an incidence angle below 89°."); return;}
+  const c=Math.cos(a*Math.PI/180),v=d/c;
+  $("o2").innerHTML=
+    step(`<b>Step 1.</b> For purely vertical motion, only the vertical component projects onto the line of sight: <span class="eq">d<sub>LOS</sub> = d<sub>vertical</sub> · cos θ</span>`)+
+    step(`<b>Step 2.</b> <span class="eq">d<sub>vertical</sub> = ${sg(d,2)} / cos ${f(a,1)}° = ${sg(d,2)} / ${f(c,4)} = <b>${sg(v,2)} mm</b></span> (${v>0?'uplift':v<0?'subsidence':'no movement'})`)+
+    (s>0?step(`σ of the vertical value: ${f(s,2)} / ${f(c,4)} = ${f(s/c,2)} mm.`):"")+
+    `<p class="note">If horizontal movement is possible (for example on a slope), one geometry cannot separate it from vertical motion: combine ascending and descending images. North–south motion is poorly resolved by current satellite geometries. The result is also relative to a reference area assumed stable.</p>`;
+}
+
+// ---------- Exercise 3 ----------
+function r3(){
+  const lines=$("h3l").value.split("\n").map(l=>l.split(/[,;\t]+/).map(s=>s.trim())).filter(a=>a.length>=2&&a[0]&&a[1]);
+  const dat=$("h3d").value.split(/[,;\s]+/).map(s=>s.trim()).filter(Boolean),sig=num("h3s"),dm=num("h3m");
+  if(lines.length<2||!(sig>0&&dm>0)){ $("o3").innerHTML=bad("enter at least two lines, a positive σ and a movement to detect."); return;}
+  const pts=[...new Set(lines.flat())],n=lines.length,u=pts.length,w=pts.map(p=>dat.includes(p)?1:0);
+  if(!w.some(x=>x)){ $("o3").innerHTML=bad("name at least one datum point that appears in the lines."); return;}
+  const A=lines.map(([a,b])=>pts.map(p=>(p===b?1:0)-(p===a?1:0)));
+  const N=pts.map((_,i)=>pts.map((_,j)=>A.reduce((s,r)=>s+r[i]*r[j],0)/(sig*sig)));
+  const M=[...N.map((r,i)=>[...r,w[i]]),[...w,0]],Mi=inv(M);
+  if(!Mi){ $("o3").innerHTML=bad("the network is not connected."); return;}
+  const Q=Mi.slice(0,u).map(r=>r.slice(0,u)),r=n-(u-1);
+  const qv=A.map(row=>sig*sig-row.reduce((s,a,i)=>s+a*row.reduce((t,b,j)=>t+Q[i][j]*b,0),0)),ri=qv.map(q=>q/(sig*sig));
+  const mdb=ri.map(x=>x>1e-9?sig*4.13/Math.sqrt(x):Infinity);
+  const obj=pts.map((p,i)=>({p,sd:Math.sqrt(Math.max(Q[i][i],0)),ref:!!w[i]})).filter(o=>!o.ref);
+  const req=dm/(2.80*Math.SQRT2),maxsd=Math.max(...obj.map(o=>o.sd)),minr=Math.min(...ri),maxm=Math.max(...mdb),sens=2.80*Math.SQRT2*maxsd;
+  const ok=(c)=>c?'<span style="color:var(--ok);font-weight:600">meets</span>':'<span style="color:var(--staff);font-weight:600">fails</span>';
+  $("o3").innerHTML=
+    step(`<b>Step 1. Design:</b> ${n} lines, ${u} points, datum on ${dat.join(", ")}; redundancy r = n − (u − 1) = <b>${r}</b>.`)+
+    step(`<b>Step 2. Requirement:</b> detect ${f(dm,1)} mm between two epochs (5%, 80% power): σ<sub>d</sub> ≤ ${f(dm,1)}/2.80 = ${f(dm/2.8,2)} mm, so each stud needs σ ≤ ${f(dm/2.8,2)}/√2 = <b>${f(req,2)} mm</b> per epoch.`)+
+    `<table class="t"><tr><th>Criterion</th><th>Value</th><th>Target</th><th>Result</th></tr>
+      <tr><td>Largest σ of an object point</td><td>${f(maxsd,2)} mm</td><td>≤ ${f(req,2)} mm</td><td>${ok(maxsd<=req)}</td></tr>
+      <tr><td>Smallest redundancy number</td><td>${f(minr,2)}</td><td>&gt; 0.3</td><td>${ok(minr>0.3)}</td></tr>
+      <tr><td>Largest MDB</td><td>${isFinite(maxm)?f(maxm,2)+' mm':'∞'}</td><td>&lt; ${f(dm,1)} mm</td><td>${ok(maxm<dm)}</td></tr>
+      <tr><td>Smallest detectable movement</td><td>${f(sens,2)} mm</td><td>≤ ${f(dm,1)} mm</td><td>${ok(sens<=dm)}</td></tr></table>`+
+    step(`<b>Step 3. Per line:</b>`)+`<table class="t"><tr><th>Line</th><th>r<sub>i</sub></th><th>MDB (mm)</th></tr>${lines.map((l,i)=>`<tr><td>${l[0]} → ${l[1]}</td><td>${f(ri[i],2)}</td><td>${isFinite(mdb[i])?f(mdb[i],2):'∞'}</td></tr>`).join("")}</table>`+
+    step(`<b>Object point precision (σ, mm):</b> ${obj.map(o=>`${o.p} ${f(o.sd,2)}`).join(", ")}.`)+
+    `<p class="note">Exercise 3: precision alone is not enough. A design can be precise yet unable to detect a blunder larger than the movement it is meant to find; then a blunder could be reported as movement.</p>`;
+}
+
+// ---------- Exercise 4 ----------
+function r4(){
+  const a=num("h4a"),x=num("h4x"),v=num("h4v"),k=Math.round(num("h4n")),c=num("h4c");
+  if(!(x>a&&a>=0&&v>0&&k>=1)){ $("o4").innerHTML=bad("the Work Suspension Level must exceed the Alert Level, and the rate must be positive."); return;}
+  const gap=(x-a)/v,mx=gap/k;
+  let out=step(`<b>Step 1.</b> Time to move from the Alert Level to the Work Suspension Level: <span class="eq">(${f(x,1)} − ${f(a,1)}) / ${f(v,2)} = <b>${f(gap,2)} weeks</b></span>`)+
+    step(`<b>Step 2.</b> At least ${k} epochs in that time: <span class="eq">interval ≤ ${f(gap,2)} / ${k} = <b>${f(mx,2)} weeks</b></span> (about ${f(mx*7,0)} days).`)+
+    step(`<b>Recommendation:</b> ${mx>=1?'weekly':mx>=0.5?'twice weekly':mx>=1/7?'every '+Math.max(1,Math.floor(mx*7))+' days':'daily or continuous (automated)'} monitoring, and more frequent readings once the Alert Level is reached or if the rate increases.`);
+  if(isFinite(c)&&c>=0){const ta=Math.max(0,(a-c)/v),tx=Math.max(0,(x-c)/v);out+=step(`At the current ${f(c,1)} mm: Alert Level in about ${f(ta,1)} weeks, Work Suspension Level in about ${f(tx,1)} weeks, if the rate stays the same.`);}
+  $("o4").innerHTML=out+`<p class="note">Two epochs between the levels give one to detect that the Alert Level is passed and another to confirm the trend before the Work Suspension Level.</p>`;
+}
+
+// ---------- Exercise 5: tunnel ----------
+function ringFit(r,keep,cols){const n=r.length,th=r.map((_,i)=>2*Math.PI*i/n);
+  const full=th.map(t=>[1,Math.cos(t),Math.sin(t),Math.cos(2*t),Math.sin(2*t)]);
+  const B=keep.map(i=>cols.map(c=>full[i][c])),y=keep.map(i=>r[i]),k=cols.length;
+  const N=[...Array(k)].map((_,a)=>[...Array(k)].map((_,b)=>B.reduce((s,row)=>s+row[a]*row[b],0))),Ni=inv(N);if(!Ni)return null;
+  const u=[...Array(k)].map((_,a)=>B.reduce((s,row,i)=>s+row[a]*y[i],0)),p=Ni.map(row=>row.reduce((s,v,j)=>s+v*u[j],0));
+  const v=B.map((row,i)=>row.reduce((s,b,j)=>s+b*p[j],0)-y[i]);return {p,Ni,vv:v.reduce((s,e)=>s+e*e,0),df:keep.length-k};}
+function r5(){
+  const r1=nums($("h5r1").value),r2=nums($("h5r2").value),s=num("h5s"),useC=$("h5c").checked,om=nums($("h5o").value);
+  if(r1.length!==r2.length||r1.length<6||!(s>0)){ $("o5").innerHTML=bad("enter the same number (at least 6) of radii for each epoch and a positive σ."); return;}
+  const n=r1.length,ang=r1.map((_,i)=>360*i/n),keep=ang.map((a,i)=>i).filter(i=>!om.some(o=>Math.abs(o-ang[i])<1e-6));
+  const cols=useC?[0,1,2,3,4]:[0,3,4],names=useC?["R","x0","y0","a","b"]:["R","a","b"];
+  const A=ringFit(r1,keep,cols),B=ringFit(r2,keep,cols);
+  if(!A||!B||A.df<1){ $("o5").innerHTML=bad("too few observed points for this model."); return;}
+  const c1=chi2inv(0.95,A.df),T1=A.vv/(s*s),T2=B.vv/(s*s);
+  const rows=names.map((nm,i)=>{const d=B.p[i]-A.p[i],sd=s*Math.sqrt(2*A.Ni[i][i]);return `<tr><td>${nm}</td><td>${f(A.p[i],2)}</td><td>${f(B.p[i],2)}</td><td>${sg(d,2)}</td><td>${f(sd,2)}</td><td>${f(d/sd,1)}</td></tr>`;}).join("");
+  const iR=0,ia=useC?3:1,dR=B.p[iR]-A.p[iR],da=B.p[ia]-A.p[ia];
+  $("o5").innerHTML=
+    step(`<b>Model:</b> r(θ) = R ${useC?'+ x0 cos θ + y0 sin θ ':''}+ a cos 2θ + b sin 2θ; ${keep.length} of ${n} points observed (angles ${keep.map(i=>f(ang[i],0)+'°').join(", ")}), r = ${A.df} per epoch.`)+
+    step(`<b>Model test:</b> T = ${f(T1,1)} (epoch 1) and ${f(T2,1)} (epoch 2) against χ²<sub>${A.df}</sub> = ${f(c1,2)}: ${T1>c1||T2>c1?'<b>rejected</b> in at least one epoch':'accepted in both'}.`)+
+    `<table class="t"><tr><th>Parameter</th><th>Epoch 1</th><th>Epoch 2</th><th>Change</th><th>σ</th><th>z</th></tr>${rows}</table>`+
+    step(`<b>Diameters:</b> horizontal change 2(ΔR + Δa) = <b>${sg(2*(dR+da),2)} mm</b>; vertical change 2(ΔR − Δa) = <b>${sg(2*(dR-da),2)} mm</b>.`)+
+    `<p class="note">Exercise 5: x0 and y0 absorb the different instrument set-up of each epoch, so they play the role of the datum. Untick them: on a complete, evenly spaced ring the radius and ovalisation are unchanged but the model test fails; with points missing (try the 1 cm offset preset), the set-up offset leaks into R and a and gives false deformation.</p>`;
+}
+
+// ---------- Exercise 6 ----------
+function r6(){
+  const dist=$("h6d").value,a=Math.round(num("h6a")),b=Math.round(num("h6b")),p=parseFloat($("h6p").value),v=num("h6v");
+  if(!(a>=1)||(dist==="F"&&!(b>=1))){ $("o6").innerHTML=bad("degrees of freedom must be at least 1."); return;}
+  let c,lab,rows="";
+  if(dist==="F"){c=finv(p,a,b);lab=`F<sub>${a}, ${b}</sub>`;rows=[1,2,3,4,6,10].map(d1=>`<tr><td>${d1}</td>${[3,5,6,10,20,30].map(d2=>`<td${d1===a&&d2===b?' style="font-weight:600;color:var(--staff)"':''}>${f(finv(p,d1,d2),2)}</td>`).join("")}</tr>`).join("");
+    rows=`<table class="t"><tr><th>f1 \\ f2</th>${[3,5,6,10,20,30].map(d=>`<th>${d}</th>`).join("")}</tr>${rows}</table>`;}
+  else if(dist==="chi"){c=chi2inv(p,a);lab=`χ²<sub>${a}</sub>`;}
+  else if(dist==="t"){c=tinv2(1-p,a);lab=`t<sub>${a}</sub> (two-sided)`;}
+  else{c=normInv(1-(1-p)/2);lab="z (two-sided)";}
+  $("o6").innerHTML=
+    step(`<b>Critical value</b> ${lab} at ${pct(p)}: <b>${f(c,dist==="z"||dist==="t"?3:2)}</b>`)+
+    (isFinite(v)?`<span class="verdict ${(dist==="t"||dist==="z"?Math.abs(v):v)>c?'yes':'no'}">${f(v,2)} ${(dist==="t"||dist==="z"?Math.abs(v):v)>c?'exceeds':'does not exceed'} the critical value: ${(dist==="t"||dist==="z"?Math.abs(v):v)>c?'reject H₀':'do not reject H₀'}</span>`:"")+
+    (rows?step(`F table at ${pct(p)} (f1 = numerator, e.g. h; f2 = denominator, e.g. pooled f):`)+rows:"")+
+    `<p class="note">For the congruency test, f1 = h = rank(Q<sub>dd</sub>) and f2 = the pooled redundancy of both epochs.</p>`;
+}
+
+// ---------- wiring ----------
+const renderers={p1:r1,p2:r2,p3:r3,p4:r4,p5:r5,p6:r6};
+const defaults={};
+document.querySelectorAll(".panel").forEach(p=>{defaults[p.id]={};p.querySelectorAll("input,select,textarea").forEach(el=>defaults[p.id][el.id]=el.type==="checkbox"?el.checked:el.value);
+  p.addEventListener("input",()=>renderers[p.id]());p.addEventListener("change",()=>renderers[p.id]());});
+document.querySelectorAll(".reset[data-reset]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.reset;Object.entries(defaults[id]).forEach(([k,v])=>{const el=$(k);if(el.type==="checkbox")el.checked=v;else el.value=v;});renderers[id]();}));
+const presets={B:()=>{$("h3l").value=defaults.p3.h3l+"\nS1, S4\nS2, S5\nS3, R3\nR2, S6";r3();},
+  C:()=>{$("h3l").value=defaults.p3.h3l+"\nS1, S4\nS2, S5\nS3, R3\nR2, S6\nR1, S4";r3();},
+  offset:()=>{$("h5r2").value="3011.7, 3001.3, 2987.8, 2987.2, 2992.3, 2994.7, 3000.2, 3009.0";$("h5o").value="270";r5();}};
+document.querySelectorAll(".reset[data-preset]").forEach(b=>b.addEventListener("click",()=>presets[b.dataset.preset]()));
+const tabs=[...document.querySelectorAll('nav.rail button')];
+function show(id){tabs.forEach(t=>t.setAttribute("aria-selected",t.dataset.p===id?"true":"false"));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===id));renderers[id]();
+  try{localStorage.setItem("p8solver-tab",id)}catch(e){}}
+tabs.forEach(t=>t.addEventListener("click",()=>show(t.dataset.p)));
+document.querySelector("nav.rail").addEventListener("keydown",e=>{const i=tabs.findIndex(t=>t.getAttribute("aria-selected")==="true");
+  if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();const n=tabs[(i+1)%tabs.length];show(n.dataset.p);n.focus();}
+  if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();const n=tabs[(i-1+tabs.length)%tabs.length];show(n.dataset.p);n.focus();}});
+const root=document.documentElement;
+try{const th=localStorage.getItem("p8solver-theme");if(th)root.setAttribute("data-theme",th);}catch(e){}
+$("themeBtn").addEventListener("click",()=>{const dark=root.getAttribute("data-theme")?root.getAttribute("data-theme")==="dark":matchMedia("(prefers-color-scheme: dark)").matches;
+  const next=dark?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("p8solver-theme",next)}catch(e){}});
+Object.values(renderers).forEach(fn=>fn());
+let start="p1";try{const s=localStorage.getItem("p8solver-tab");if(s&&renderers[s])start=s;}catch(e){}
+show(start);
+</script>
+</body>
+</html>

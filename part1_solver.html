@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Yam Khoon Tor. All rights reserved.
+  Companion app to "Deformation Monitoring and Analysis: Theory, Methods and
+  Practice for Surveyors and Engineers". Not to be copied for others,
+  redistributed, sold or published, in original or modified form, without
+  the written permission of the author. See COPYRIGHT.txt.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Part I Solver: Deformation Monitoring and Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2F4EF; --sheet:#FFFFFF; --ink:#1E2B3A; --pencil:#5E6B66; --grid:#D9DFD5;
+  --staff:#B3261E; --ok:#2F6B4F; --accent-soft:#E7ECE4; --focus:#2B5C8A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+    --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A1F; --sheet:#1B242B; --ink:#E6ECE8; --pencil:#9AA8A2; --grid:#2C3740;
+  --staff:#F0786A; --ok:#7CC8A0; --accent-soft:#222D35; --focus:#8EB8E0;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-weight:650;line-height:1.2;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 48px}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+header.top h1{font-size:clamp(1.5rem,3vw,2.1rem)}
+header.top p{margin:4px 0 0;color:var(--pencil);max-width:60ch}
+.theme-btn{background:none;border:1px solid var(--grid);color:var(--ink);border-radius:6px;padding:6px 10px;font:inherit;font-size:.85rem;cursor:pointer}
+.layout{display:grid;grid-template-columns:230px 1fr;gap:24px;align-items:start}
+nav.rail{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:2px}
+nav.rail button{display:grid;grid-template-columns:2.2em 1fr;align-items:baseline;text-align:left;background:none;border:0;border-left:3px solid transparent;
+  color:var(--ink);font:inherit;font-size:.95rem;padding:8px 10px;cursor:pointer;border-radius:0 6px 6px 0}
+nav.rail button .n{font-family:"Source Serif 4",Georgia,serif;color:var(--pencil);font-weight:650}
+nav.rail button[aria-selected="true"]{border-left-color:var(--staff);background:var(--accent-soft)}
+nav.rail button[aria-selected="true"] .n{color:var(--staff)}
+nav.rail button:hover{background:var(--accent-soft)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.panel{display:none}
+.panel.active{display:block}
+.panel h2{font-size:1.5rem;margin-bottom:4px}
+.panel .q{color:var(--pencil);margin:0 0 16px;max-width:70ch}
+.cols{display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:20px;align-items:start}
+.inputs{background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px}
+.inputs label{display:block;font-size:.85rem;color:var(--pencil);margin:10px 0 4px}
+.inputs label:first-child{margin-top:0}
+.inputs input,.inputs select,.inputs textarea{width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--grid);border-radius:6px;padding:7px 9px}
+.inputs textarea{min-height:120px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.reset{margin-top:14px;background:none;border:1px solid var(--grid);color:var(--ink);font:inherit;font-size:.85rem;padding:6px 10px;border-radius:6px;cursor:pointer;width:100%}
+/* the field-book working sheet: ruled lines and a red margin */
+.sheet{position:relative;background:var(--sheet);border:1px solid var(--grid);border-radius:8px;padding:16px 18px 18px 46px;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--grid) 27px,var(--grid) 28px);
+  background-position:0 10px;min-height:200px;overflow-x:auto}
+.sheet::before{content:"";position:absolute;top:0;bottom:0;left:30px;width:2px;background:var(--staff);opacity:.7}
+.sheet .step{margin:0 0 6px;line-height:28px}
+.sheet .step b{font-weight:600}
+.sheet .eq{font-family:"Source Serif 4",Georgia,serif;font-size:1.05rem}
+.sheet .verdict{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:4px;font-weight:600}
+.verdict.yes{color:#fff;background:var(--staff)}
+.verdict.no{color:#fff;background:var(--ok)}
+:root[data-theme="dark"] .verdict.yes,:root[data-theme="dark"] .verdict.no{color:#131A1F}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .verdict.yes,:root:not([data-theme="light"]) .verdict.no{color:#131A1F}}
+table.t{border-collapse:collapse;margin:6px 0 10px;font-size:.95rem;background:var(--sheet)}
+table.t th,table.t td{border:1px solid var(--grid);padding:4px 10px;text-align:right}
+table.t th{font-weight:600;color:var(--pencil);text-align:center}
+table.t td:first-child,table.t th:first-child{text-align:left}
+.note{color:var(--pencil);font-size:.9rem;margin-top:8px}
+svg.plot{width:100%;max-width:420px;height:auto;display:block;margin:8px 0}
+.plot .axis{stroke:var(--pencil);stroke-width:1}
+.plot .gridl{stroke:var(--grid);stroke-width:1}
+.plot .ell1{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .ell2{fill:none;stroke:var(--staff);stroke-width:2;stroke-dasharray:6 4}
+.plot .pt{fill:var(--staff)}
+.plot text{fill:var(--pencil);font-size:11px;font-family:"Public Sans",system-ui,sans-serif}
+.plot .curve{fill:none;stroke:var(--ink);stroke-width:2}
+.plot .tail{fill:var(--staff);opacity:.25}
+.plot .zline{stroke:var(--staff);stroke-width:2}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;flex-direction:row;overflow-x:auto;background:var(--paper);padding:6px 0;border-bottom:1px solid var(--grid)}
+  nav.rail button{grid-template-columns:auto auto;gap:6px;white-space:nowrap;border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0}
+  nav.rail button[aria-selected="true"]{border-bottom-color:var(--staff)}
+  .cols{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Part I Solver</h1>
+    <p>Calculators for the Part I exercises of <i>Deformation Monitoring and Analysis</i>. Each opens with the exercise values; change any number to see the working update.</p>
+  </div>
+  <button class="theme-btn" id="themeBtn" type="button">Switch theme</button>
+</header>
+
+<div class="layout">
+<nav class="rail" role="tablist" aria-label="Exercises">
+  <button role="tab" data-p="p2" aria-selected="true"><span class="n">2</span><span>Movement test</span></button>
+  <button role="tab" data-p="p3"><span class="n">3</span><span>Error ellipse</span></button>
+  <button role="tab" data-p="p4"><span class="n">4, 6</span><span>Datum and redundancy</span></button>
+  <button role="tab" data-p="p5"><span class="n">5, 7</span><span>Levelling loop</span></button>
+  <button role="tab" data-p="p8"><span class="n">8</span><span>Mean and std. dev.</span></button>
+  <button role="tab" data-p="p9"><span class="n">9</span><span>2D displacement test</span></button>
+  <button role="tab" data-p="p10"><span class="n">10</span><span>Polar propagation</span></button>
+  <button role="tab" data-p="p11"><span class="n">11</span><span>Required precision</span></button>
+  <button role="tab" data-p="p12"><span class="n">12</span><span>Global test</span></button>
+  <button role="tab" data-p="p13"><span class="n">13</span><span>Null-space matrix</span></button>
+</nav>
+
+<main>
+<!-- Exercise 2 -->
+<section class="panel active" id="p2" role="tabpanel">
+  <h2>Has the point moved?</h2>
+  <p class="q">Exercise 2: a height changes by 3.0 mm between two independent epochs, each with σ = 1.0 mm. Test at 5% and 1%.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="e2d">Height change d (mm)</label><input id="e2d" type="number" step="0.1" value="3.0">
+      <div class="row2">
+        <div><label for="e2s1">σ epoch 1 (mm)</label><input id="e2s1" type="number" step="0.1" min="0" value="1.0"></div>
+        <div><label for="e2s2">σ epoch 2 (mm)</label><input id="e2s2" type="number" step="0.1" min="0" value="1.0"></div>
+      </div>
+      <label for="e2a">Significance level α</label>
+      <select id="e2a"><option value="0.10">10%</option><option value="0.05" selected>5%</option><option value="0.01">1%</option><option value="0.001">0.1%</option></select>
+      <button class="reset" data-reset="p2" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o2" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 3 -->
+<section class="panel" id="p3" role="tabpanel">
+  <h2>Error ellipse</h2>
+  <p class="q">Exercise 3: σx² = 5 mm², σy² = 5 mm², σxy = 4 mm². Find the standard and 95% ellipses and their orientation.</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row3">
+        <div><label for="e3xx">σx² (mm²)</label><input id="e3xx" type="number" step="0.1" value="5"></div>
+        <div><label for="e3yy">σy² (mm²)</label><input id="e3yy" type="number" step="0.1" value="5"></div>
+        <div><label for="e3xy">σxy (mm²)</label><input id="e3xy" type="number" step="0.1" value="4"></div>
+      </div>
+      <label for="e3c">Confidence level</label>
+      <select id="e3c"><option value="0.90">90%</option><option value="0.95" selected>95%</option><option value="0.99">99%</option></select>
+      <button class="reset" data-reset="p3" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o3" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercises 4 and 6 -->
+<section class="panel" id="p4" role="tabpanel">
+  <h2>Datum defect, rank and redundancy</h2>
+  <p class="q">Exercises 4 and 6: a levelling network of 4 points and 5 height differences; datum defects of 2D networks.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="e4t">Network and observations</label>
+      <select id="e4t">
+        <option value="lev" selected>Levelling (height differences)</option>
+        <option value="d2">2D, distances (with or without angles)</option>
+        <option value="a2">2D, angles or directions only</option>
+        <option value="az2">2D, distances and azimuths</option>
+        <option value="gnss">GNSS baselines (3D)</option>
+        <option value="t3">3D terrestrial, levelled instruments</option>
+        <option value="f3">3D, no orientation or scale</option>
+      </select>
+      <div class="row2">
+        <div><label for="e4p">Points</label><input id="e4p" type="number" min="1" step="1" value="4"></div>
+        <div><label for="e4n">Observations</label><input id="e4n" type="number" min="0" step="1" value="5"></div>
+      </div>
+      <label for="e4o">Extra unknowns (e.g. station orientations)</label><input id="e4o" type="number" min="0" step="1" value="0">
+      <button class="reset" data-reset="p4" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o4" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercises 5 and 7 -->
+<section class="panel" id="p5" role="tabpanel">
+  <h2>Levelling loop A–B–C</h2>
+  <p class="q">Exercise 5: adjust the loop with H<sub>C</sub> = 100.000 m fixed. Exercise 7: what does each datum report if A settles 5 mm?</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row3">
+        <div><label for="e5ab">h AB (m)</label><input id="e5ab" type="number" step="0.001" value="1.000"></div>
+        <div><label for="e5bc">h BC (m)</label><input id="e5bc" type="number" step="0.001" value="2.000"></div>
+        <div><label for="e5ca">h CA (m)</label><input id="e5ca" type="number" step="0.001" value="-3.006"></div>
+      </div>
+      <label for="e5dat">Datum</label>
+      <select id="e5dat"><option value="A">Fix A</option><option value="B">Fix B</option><option value="C" selected>Fix C</option><option value="free">Free network (inner constraints)</option></select>
+      <label for="e5h">Height of fixed point (m)</label><input id="e5h" type="number" step="0.001" value="100.000">
+      <label>True movements between epochs (mm), for Exercise 7</label>
+      <div class="row3">
+        <div><label for="e5ma">A</label><input id="e5ma" type="number" step="0.1" value="-5"></div>
+        <div><label for="e5mb">B</label><input id="e5mb" type="number" step="0.1" value="0"></div>
+        <div><label for="e5mc">C</label><input id="e5mc" type="number" step="0.1" value="0"></div>
+      </div>
+      <button class="reset" data-reset="p5" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o5" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 8 -->
+<section class="panel" id="p8" role="tabpanel">
+  <h2>Mean and standard deviation</h2>
+  <p class="q">Exercise 8: six readings of a distance. Find the mean and the standard deviations of one reading and of the mean.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="e8r">Readings (m), one per line or separated by commas</label>
+      <textarea id="e8r">48.217
+48.214
+48.219
+48.216
+48.215
+48.221</textarea>
+      <button class="reset" data-reset="p8" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o8" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 9 -->
+<section class="panel" id="p9" role="tabpanel">
+  <h2>Testing a 2D displacement</h2>
+  <p class="q">Exercise 9: d = (2.0, 1.0) mm with Σ = I. Test jointly at 5%, then x alone.</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row2">
+        <div><label for="e9dx">dx (mm)</label><input id="e9dx" type="number" step="0.1" value="2.0"></div>
+        <div><label for="e9dy">dy (mm)</label><input id="e9dy" type="number" step="0.1" value="1.0"></div>
+      </div>
+      <div class="row3">
+        <div><label for="e9xx">σx² (mm²)</label><input id="e9xx" type="number" step="0.1" value="1"></div>
+        <div><label for="e9yy">σy² (mm²)</label><input id="e9yy" type="number" step="0.1" value="1"></div>
+        <div><label for="e9xy">σxy (mm²)</label><input id="e9xy" type="number" step="0.1" value="0"></div>
+      </div>
+      <label for="e9a">Significance level α</label>
+      <select id="e9a"><option value="0.10">10%</option><option value="0.05" selected>5%</option><option value="0.01">1%</option></select>
+      <button class="reset" data-reset="p9" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o9" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 10 -->
+<section class="panel" id="p10" role="tabpanel">
+  <h2>Polar observation to coordinates</h2>
+  <p class="q">Exercise 10: s = 200 m, α = 0°, σs = 3 mm, σα = 2″. Find σE, σN and σEN.</p>
+  <div class="cols">
+    <div class="inputs">
+      <div class="row2">
+        <div><label for="e10s">Distance s (m)</label><input id="e10s" type="number" step="0.001" value="200"></div>
+        <div><label for="e10ss">σs (mm)</label><input id="e10ss" type="number" step="0.1" value="3"></div>
+      </div>
+      <div class="row2">
+        <div><label for="e10a">Bearing α (degrees)</label><input id="e10a" type="number" step="0.1" value="0"></div>
+        <div><label for="e10sa">σα (seconds)</label><input id="e10sa" type="number" step="0.1" value="2"></div>
+      </div>
+      <button class="reset" data-reset="p10" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o10" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 11 -->
+<section class="panel" id="p11" role="tabpanel">
+  <h2>Required precision</h2>
+  <p class="q">Exercise 11: detect 3 mm of settlement at 5% with 80% power, using two epochs of equal precision.</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="e11d">Movement to detect δ (mm)</label><input id="e11d" type="number" step="0.1" value="3">
+      <label for="e11a">Significance level α (two-sided)</label>
+      <select id="e11a"><option value="0.10">10%</option><option value="0.05" selected>5%</option><option value="0.01">1%</option><option value="0.001">0.1%</option></select>
+      <label for="e11p">Power</label>
+      <select id="e11p"><option value="0.5">50%</option><option value="0.8" selected>80%</option><option value="0.9">90%</option><option value="0.95">95%</option></select>
+      <button class="reset" data-reset="p11" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o11" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 12 -->
+<section class="panel" id="p12" role="tabpanel">
+  <h2>Global model test</h2>
+  <p class="q">Exercise 12: r = 15, vᵀPv = 27.8, σ0² = 1. Is the model accepted at 95%?</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="e12v">vᵀPv</label><input id="e12v" type="number" step="0.1" value="27.8">
+      <div class="row2">
+        <div><label for="e12r">Redundancy r</label><input id="e12r" type="number" min="1" step="1" value="15"></div>
+        <div><label for="e12s">A priori σ0²</label><input id="e12s" type="number" step="0.01" min="0" value="1"></div>
+      </div>
+      <label for="e12c">Confidence level</label>
+      <select id="e12c"><option value="0.90">90%</option><option value="0.95" selected>95%</option><option value="0.99">99%</option></select>
+      <button class="reset" data-reset="p12" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o12" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- Exercise 13 -->
+<section class="panel" id="p13" role="tabpanel">
+  <h2>Null-space matrix E</h2>
+  <p class="q">Exercise 13: a 2D distance network with points P(10, 20), Q(50, 20), R(30, 60).</p>
+  <div class="cols">
+    <div class="inputs">
+      <label for="e13p">Points: name, x, y (one per line)</label>
+      <textarea id="e13p">P, 10, 20
+Q, 50, 20
+R, 30, 60</textarea>
+      <label for="e13s">Columns</label>
+      <select id="e13s"><option value="3" selected>Shifts and rotation (distances)</option><option value="4">Shifts, rotation and scale (angles only)</option></select>
+      <button class="reset" data-reset="p13" type="button">Restore exercise values</button>
+    </div>
+    <div class="sheet" id="o13" aria-live="polite"></div>
+  </div>
+</section>
+</main>
+</div>
+<p class="note">All computations run in your browser. Critical values are computed from the normal and χ² distributions, not looked up from tables.</p>
+<p class="note">Copyright © 2026 Yam Khoon Tor. All rights reserved. Companion to <i>Deformation Monitoring and Analysis: Theory, Methods and Practice for Surveyors and Engineers</i>. For the reader’s own study and professional work only; not to be copied for others, redistributed, sold or published, in original or modified form, without the author’s written permission. Results are for education and guidance and should be checked independently; the author accepts no liability for their use.</p>
+</div>
+
+<script>
+// ---------- statistics ----------
+function normInv(p){ // Acklam's algorithm
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pl=0.02425,ph=1-pl; let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p<=ph){q=p-0.5;r=q*q;return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+function gammaln(x){const g=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let y=x,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=g[j]/++y;return -t+Math.log(2.5066282746310005*s/x);}
+function gammaP(a,x){ if(x<=0)return 0;
+  if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<500;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-14)break;}return sum*Math.exp(-x+a*Math.log(x)-gammaln(a));}
+  let b=x+1-a,c=1/1e-300,d=1/b,h=d;for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-14)break;}
+  return 1-Math.exp(-x+a*Math.log(x)-gammaln(a))*h;}
+function chi2cdf(x,k){return gammaP(k/2,x/2);}
+function chi2inv(p,k){let lo=0,hi=k+60*Math.sqrt(2*k)+60;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(chi2cdf(m,k)<p)lo=m;else hi=m;}return (lo+hi)/2;}
+function normPdf(x){return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI);}
+
+// ---------- helpers ----------
+const $=id=>document.getElementById(id);
+const num=id=>parseFloat($(id).value);
+function f(x,d=2){ if(!isFinite(x))return "–"; const s=(Math.abs(x)<0.5*Math.pow(10,-d)?0:x).toFixed(d); return s.replace("-","−");}
+function sg(x,d=2){const t=f(x,d);return (x>0&&parseFloat(t)!==0?"+":"")+t;}
+function pct(a){return (a*100).toString().replace(/\.0+$/,"")+"%";}
+const step=(html)=>`<p class="step">${html}</p>`;
+const verdict=(moved,yesText,noText)=>`<span class="verdict ${moved?'yes':'no'}">${moved?yesText:noText}</span>`;
+function bad(msg){return step(`<b>Check the inputs:</b> ${msg}`);}
+
+// ---------- Exercise 2 ----------
+function r2(){
+  const d=num("e2d"),s1=num("e2s1"),s2=num("e2s2"),a=parseFloat($("e2a").value);
+  if(!(s1>=0&&s2>=0)||(s1===0&&s2===0)||!isFinite(d)){ $("o2").innerHTML=bad("enter a height change and at least one positive σ."); return;}
+  const sd=Math.sqrt(s1*s1+s2*s2), z=Math.abs(d)/sd;
+  const rows=[0.10,0.05,0.01,0.001].map(al=>{const c=normInv(1-al/2);return `<tr${al===a?' style="font-weight:600"':''}><td>${pct(al)}</td><td>${f(c,3)}</td><td>${z>c?'Moved':'Not proven'}</td></tr>`}).join("");
+  const c=normInv(1-a/2);
+  // plot
+  const W=420,H=150,xs=v=>W/2+v*(W/9),ys=v=>H-24-v*(H-40)/0.4;
+  let path="",tailL="",tailR="";
+  for(let v=-4.5;v<=4.5001;v+=0.05){path+=(path?"L":"M")+xs(v).toFixed(1)+","+ys(normPdf(v)).toFixed(1);}
+  const tail=(from,to)=>{let p=`M${xs(from).toFixed(1)},${ys(0).toFixed(1)}`;for(let v=from;v<=to+1e-9;v+=0.05)p+=`L${xs(v).toFixed(1)},${ys(normPdf(v)).toFixed(1)}`;return p+`L${xs(to).toFixed(1)},${ys(0).toFixed(1)}Z`;};
+  const zc=Math.min(z,4.4);
+  const svg=`<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Standard normal curve with rejection regions and the test statistic">
+    <path class="tail" d="${tail(-4.5,-c)}"/><path class="tail" d="${tail(c,4.5)}"/>
+    <line class="axis" x1="0" y1="${ys(0)}" x2="${W}" y2="${ys(0)}"/>
+    <path class="curve" d="${path}"/>
+    <line class="zline" x1="${xs(zc)}" y1="${ys(0)}" x2="${xs(zc)}" y2="16"/>
+    <text x="${xs(zc)+4}" y="14">z = ${f(z,2)}${z>4.4?' (off scale)':''}</text>
+    <text x="${xs(c)-8}" y="${H-6}">${f(c,2)}</text><text x="${xs(-c)-14}" y="${H-6}">${f(-c,2)}</text><text x="${xs(0)-3}" y="${H-6}">0</text>
+  </svg>`;
+  $("o2").innerHTML=
+    step(`<b>Step 1.</b> Standard deviation of the difference (independent epochs): <span class="eq">σ<sub>d</sub> = √(${f(s1)}² + ${f(s2)}²) = ${f(sd,3)} mm</span>`)+
+    step(`<b>Step 2.</b> Test statistic: <span class="eq">z = |d| / σ<sub>d</sub> = ${f(Math.abs(d))} / ${f(sd,3)} = ${f(z,2)}</span>`)+
+    step(`<b>Step 3.</b> Critical value at α = ${pct(a)} (two-sided): ${f(c,3)}. ${z>c?`${f(z,2)} > ${f(c,2)}`:`${f(z,2)} ≤ ${f(c,2)}`}.`)+
+    verdict(z>c,"The point has moved","Movement not proven")+svg+
+    `<table class="t"><tr><th>α</th><th>Critical z</th><th>Conclusion</th></tr>${rows}</table>`+
+    `<p class="note">"Not proven" is not the same as "stable": the evidence is simply not strong enough at that level.</p>`;
+}
+
+// ---------- Exercise 3 ----------
+function r3(){
+  const xx=num("e3xx"),yy=num("e3yy"),xy=num("e3xy"),cl=parseFloat($("e3c").value);
+  const m=(xx+yy)/2, rr=Math.sqrt(((xx-yy)/2)**2+xy*xy), l1=m+rr, l2=m-rr;
+  if(!(xx>0&&yy>0)||l2<0){ $("o3").innerHTML=bad("σx² and σy² must be positive and σxy² must not exceed σx²·σy²."); return;}
+  const a=Math.sqrt(l1), b=Math.sqrt(l2), th=0.5*Math.atan2(2*xy,xx-yy), k=Math.sqrt(chi2inv(cl,2));
+  const thd=th*180/Math.PI;
+  // plot ellipse
+  const W=300,H=300,cx=150,cy=150,R=Math.max(a*k,1e-9),sc=125/R;
+  const ell=(A,B,cls)=>`<ellipse class="${cls}" cx="${cx}" cy="${cy}" rx="${(A*sc).toFixed(1)}" ry="${(B*sc).toFixed(1)}" transform="rotate(${(-thd).toFixed(2)} ${cx} ${cy})"/>`;
+  let grid="";for(let i=-5;i<=5;i++){const p=cx+i*25;grid+=`<line class="gridl" x1="${p}" y1="10" x2="${p}" y2="290"/><line class="gridl" x1="10" y1="${p}" x2="290" y2="${p}"/>`;}
+  const svg=`<svg class="plot" viewBox="0 0 ${W} ${H}" style="max-width:300px" role="img" aria-label="Standard and confidence error ellipses">
+    ${grid}<line class="axis" x1="10" y1="${cy}" x2="290" y2="${cy}"/><line class="axis" x1="${cx}" y1="10" x2="${cx}" y2="290"/>
+    ${ell(a,b,"ell1")}${ell(a*k,b*k,"ell2")}<circle class="pt" cx="${cx}" cy="${cy}" r="3"/>
+    <text x="275" y="${cy-6}">x</text><text x="${cx+6}" y="20">y</text>
+    <text x="14" y="285">grid ${f(25/sc,2)} mm</text></svg>`;
+  $("o3").innerHTML=
+    step(`<b>Step 1.</b> Eigenvalues: <span class="eq">λ = (${f(xx)} + ${f(yy)})/2 ± √(((${f(xx)} − ${f(yy)})/2)² + ${f(xy)}²) = ${f(m,3)} ± ${f(rr,3)}</span>`)+
+    step(`λ<sub>1</sub> = ${f(l1,3)} mm², λ<sub>2</sub> = ${f(l2,3)} mm²`)+
+    step(`<b>Step 2.</b> Standard ellipse: a = √λ<sub>1</sub> = <b>${f(a,2)} mm</b>, b = √λ<sub>2</sub> = <b>${f(b,2)} mm</b>`)+
+    step(`<b>Step 3.</b> Orientation: <span class="eq">tan 2θ = 2σ<sub>xy</sub> / (σx² − σy²) = ${f(2*xy)} / ${f(xx-yy)}</span>, so θ = <b>${f(thd,1)}°</b> from the x-axis`)+
+    step(`<b>Step 4.</b> ${pct(cl)} ellipse: k = √χ²<sub>2</sub> = ${f(k,3)}; a = <b>${f(a*k,2)} mm</b>, b = <b>${f(b*k,2)} mm</b>`)+
+    svg+`<p class="note">Solid line: standard ellipse (39.4%). Dashed: ${pct(cl)} confidence ellipse.</p>`;
+}
+
+// ---------- Exercises 4 and 6 ----------
+const NET={lev:{dim:1,d:1,what:"height origin"},d2:{dim:2,d:3,what:"2 shifts and a rotation"},a2:{dim:2,d:4,what:"2 shifts, a rotation and scale"},
+  az2:{dim:2,d:2,what:"2 shifts"},gnss:{dim:3,d:3,what:"3 shifts"},t3:{dim:3,d:4,what:"3 shifts and a rotation about the vertical"},f3:{dim:3,d:7,what:"3 shifts, 3 rotations and scale"}};
+function r4(){
+  const t=NET[$("e4t").value],p=Math.round(num("e4p")),n=Math.round(num("e4n")),o=Math.round(num("e4o"))||0;
+  if(!(p>=1&&n>=0&&o>=0)){ $("o4").innerHTML=bad("enter whole numbers for points and observations."); return;}
+  const u=p*t.dim+o, rank=u-t.d, r=n-rank;
+  let msg=r<0?`There are ${-r} too few observations to determine the shape of the network.`:r===0?`No redundancy: errors cannot be detected.`:`${r} redundant observation${r>1?'s':''} available to check for errors.`;
+  $("o4").innerHTML=
+    step(`<b>Step 1.</b> Unknowns: u = ${p} points × ${t.dim} coordinate${t.dim>1?'s':''}${o?` + ${o} extra`:''} = ${u}`)+
+    step(`<b>Step 2.</b> Datum defect: d = <b>${t.d}</b> (${t.what})`)+
+    step(`<b>Step 3.</b> Rank of N: u − d = ${u} − ${t.d} = <b>${rank}</b>`)+
+    step(`<b>Step 4.</b> Redundancy: r = n − rank = ${n} − ${rank} = <b>${r}</b>`)+
+    step(msg)+
+    `<p class="note">Assumes a connected network with no configuration defect. Extra unknowns such as station orientations add to u but not to the datum defect.</p>`;
+}
+
+// ---------- Exercises 5 and 7 ----------
+function solveLinear(M,b){const n=b.length,A=M.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;for(let r=0;r<n;r++){if(r===c)continue;const fct=A[r][c]/A[c][c];for(let k=c;k<=n;k++)A[r][k]-=fct*A[c][k];}}
+  return A.map((r,i)=>r[n]/r[i]);}
+function inv(M){const n=M.length;return M.map((_,j)=>solveLinear(M,M.map((_,i)=>i===j?1:0))).reduce((acc,col,j)=>{col.forEach((v,i)=>{acc[i][j]=v});return acc;},M.map(()=>Array(n).fill(0)));}
+function r5(){
+  const l=[num("e5ab"),num("e5bc"),num("e5ca")],dat=$("e5dat").value,H=num("e5h");
+  if(l.some(v=>!isFinite(v))){ $("o5").innerHTML=bad("enter all three height differences."); return;}
+  const A=[[-1,1,0],[0,-1,1],[1,0,-1]], names=["A","B","C"];
+  const N=[[2,-1,-1],[-1,2,-1],[-1,-1,2]], u=[0,1,2].map(j=>A.reduce((s,row,i)=>s+row[j]*l[i],0));
+  const W=dat==="free"?[1,1,1]:names.map(nm=>nm===dat?1:0);
+  const target=dat==="free"?0:H; // free: heights sum to zero (as in Part I); fixed: fixed point height
+  const M=[[...N[0],W[0]],[...N[1],W[1]],[...N[2],W[2]],[W[0],W[1],W[2],0]];
+  const sol=solveLinear(M,[...u,target]); const x=sol.slice(0,3);
+  const Mi=inv(M); const Q=[0,1,2].map(i=>Mi[i][i]); const tr=Q.reduce((a,b)=>a+b,0);
+  const v=A.map((row,i)=>row.reduce((s,a,j)=>s+a*x[j],0)-l[i]);
+  const mis=l[0]+l[1]+l[2];
+  const qf=q=>{const c=[[0,"0"],[2/9,"2/9"],[2/3,"2/3"],[1/3,"1/3"],[4/9,"4/9"]].find(([val])=>Math.abs(val-q)<1e-9);return c?c[1]:f(q,3);};
+  const tbl=`<table class="t"><tr><th>Point</th><th>Height (m)</th><th>Variance (×σ0²)</th></tr>${names.map((nm,i)=>`<tr><td>${nm}</td><td>${f(x[i],4)}</td><td>${qf(Q[i])}</td></tr>`).join("")}</table>`;
+  const vt=`<table class="t"><tr><th>Line</th><th>Adjusted (m)</th><th>Residual (mm)</th></tr>${["AB","BC","CA"].map((nm,i)=>`<tr><td>${nm}</td><td>${f(l[i]+v[i],4)}</td><td>${sg(v[i]*1000,1)}</td></tr>`).join("")}</table>`;
+  // Exercise 7
+  const m=[num("e5ma"),num("e5mb"),num("e5mc")];
+  const disp=Wv=>{const s=Wv.reduce((a,b)=>a+b,0);const mean=m.reduce((acc,mv,i)=>acc+Wv[i]*mv,0)/s;return m.map(mv=>mv-mean);};
+  const rowsD=[["Truth",m],["Fix A",disp([1,0,0])],["Fix B",disp([0,1,0])],["Fix C",disp([0,0,1])],["Free network",disp([1,1,1])]];
+  const dt=`<table class="t"><tr><th>Datum</th><th>A</th><th>B</th><th>C</th></tr>${rowsD.map(([nm,d])=>`<tr${nm==="Truth"?' style="font-weight:600"':''}><td>${nm}</td>${d.map(x=>`<td>${sg(x,2)}</td>`).join("")}</tr>`).join("")}</table>`;
+  $("o5").innerHTML=
+    step(`<b>Loop misclosure:</b> ${sg(l[0],3)} ${l[1]>=0?'+':'−'} ${f(Math.abs(l[1]),3)} ${l[2]>=0?'+':'−'} ${f(Math.abs(l[2]),3)} = <b>${sg(mis*1000,1)} mm</b>`)+
+    step(`<b>Datum:</b> ${dat==="free"?"free network, heights sum to zero (minimum trace)":`H<sub>${dat}</sub> = ${f(H,3)} m held fixed`}`)+
+    tbl+vt+
+    step(`Sum of variances (trace of Q): <b>${f(tr,3)}</b> σ0²${dat==="free"?" (the minimum possible)":""}`)+
+    `<p class="note">Change the datum: heights and variances change, residuals and adjusted height differences do not.</p>`+
+    step(`<b>Exercise 7.</b> Displacements reported in each datum (mm):`)+dt+
+    `<p class="note">A fixed point is forced to show zero, so its own movement appears with opposite sign at every other point. The free network subtracts the mean movement of all points.</p>`;
+}
+
+// ---------- Exercise 8 ----------
+function r8(){
+  const vals=$("e8r").value.split(/[\s,;]+/).map(s=>s.trim()).filter(Boolean).map(Number).filter(isFinite);
+  if(vals.length<2){ $("o8").innerHTML=bad("enter at least two readings."); return;}
+  const n=vals.length, mean=vals.reduce((a,b)=>a+b,0)/n, dev=vals.map(v=>(v-mean)*1000), ss=dev.reduce((a,b)=>a+b*b,0);
+  const s=Math.sqrt(ss/(n-1)), sm=s/Math.sqrt(n);
+  const dec=Math.max(...vals.map(v=>(String(v).split(".")[1]||"").length));
+  const rows=vals.map((v,i)=>`<tr><td>${v.toFixed(dec)}</td><td>${sg(dev[i],2)}</td><td>${f(dev[i]**2,2)}</td></tr>`).join("");
+  $("o8").innerHTML=
+    step(`<b>Step 1.</b> Mean: <span class="eq">x̄ = Σx / n = ${(mean).toFixed(Math.max(dec+1,4))} m</span>`)+
+    `<table class="t"><tr><th>Reading (m)</th><th>Deviation (mm)</th><th>Deviation² (mm²)</th></tr>${rows}<tr><td>Sum</td><td>${sg(dev.reduce((a,b)=>a+b,0),2)}</td><td>${f(ss,2)}</td></tr></table>`+
+    step(`<b>Step 2.</b> One reading: <span class="eq">s = √(${f(ss,2)} / ${n-1}) = <b>${f(s,2)} mm</b></span>`)+
+    step(`<b>Step 3.</b> The mean: <span class="eq">s<sub>x̄</sub> = ${f(s,2)} / √${n} = <b>${f(sm,2)} mm</b></span>`)+
+    `<p class="note">The divisor n − 1 = ${n-1} is the redundancy: ${n} observations, 1 unknown.</p>`;
+}
+
+// ---------- Exercise 9 ----------
+function r9(){
+  const dx=num("e9dx"),dy=num("e9dy"),xx=num("e9xx"),yy=num("e9yy"),xy=num("e9xy"),a=parseFloat($("e9a").value);
+  const det=xx*yy-xy*xy;
+  if(!(xx>0&&yy>0)||det<=0){ $("o9").innerHTML=bad("the covariance matrix must be positive definite (σx²·σy² > σxy²)."); return;}
+  const T=(yy*dx*dx-2*xy*dx*dy+xx*dy*dy)/det, c2=chi2inv(1-a,2), zc=normInv(1-a/2), zx=Math.abs(dx)/Math.sqrt(xx), zy=Math.abs(dy)/Math.sqrt(yy);
+  $("o9").innerHTML=
+    step(`<b>Step 1.</b> Inverse covariance: det Σ = ${f(xx)}·${f(yy)} − ${f(xy)}² = ${f(det,3)}`)+
+    step(`<b>Step 2.</b> Joint statistic: <span class="eq">T = dᵀΣ⁻¹d = (${f(yy)}·${f(dx)}² − 2·${f(xy)}·${f(dx)}·${f(dy)} + ${f(xx)}·${f(dy)}²) / ${f(det,3)} = <b>${f(T,2)}</b></span>`)+
+    step(`<b>Step 3.</b> Critical value χ²<sub>2</sub> at ${pct(1-a)}: ${f(c2,2)}. ${T>c2?`${f(T,2)} > ${f(c2,2)}`:`${f(T,2)} ≤ ${f(c2,2)}`}.`)+
+    verdict(T>c2,"Joint test: moved","Joint test: movement not proven")+
+    `<table class="t"><tr><th>Separate test</th><th>z</th><th>Critical</th><th>Result</th></tr>
+      <tr><td>x alone</td><td>${f(zx,2)}</td><td>${f(zc,2)}</td><td>${zx>zc?'Significant':'Not significant'}</td></tr>
+      <tr><td>y alone</td><td>${f(zy,2)}</td><td>${f(zc,2)}</td><td>${zy>zc?'Significant':'Not significant'}</td></tr></table>`+
+    `<p class="note">Separate tests ignore correlation and raise the overall false-alarm rate. Use the joint test for 2D displacements.</p>`;
+}
+
+// ---------- Exercise 10 ----------
+function r10(){
+  const s=num("e10s")*1000,ss=num("e10ss"),al=num("e10a")*Math.PI/180,sa=num("e10sa")/206264.806;
+  if(!(s>0&&ss>=0&&sa>=0)){ $("o10").innerHTML=bad("distance must be positive and standard deviations non-negative."); return;}
+  const sn=Math.sin(al),cs=Math.cos(al),t=s*sa;
+  const EE=sn*sn*ss*ss+t*t*cs*cs, NN=cs*cs*ss*ss+t*t*sn*sn, EN=sn*cs*(ss*ss-t*t);
+  $("o10").innerHTML=
+    step(`<b>Step 1.</b> ΔE = s sin α, ΔN = s cos α. Jacobian rows: [sin α, s cos α] and [cos α, −s sin α], with sin α = ${f(sn,4)}, cos α = ${f(cs,4)}.`)+
+    step(`<b>Step 2.</b> Angle in radians: σ<sub>α</sub> = ${f(num("e10sa"),1)}″ / 206 265 = ${(sa).toExponential(3).replace("-","−")} rad; across the line: s·σ<sub>α</sub> = <b>${f(t,2)} mm</b>`)+
+    step(`<b>Step 3.</b> σE² = sin²α·σs² + (sσα)²·cos²α = <b>${f(EE,3)} mm²</b>`)+
+    step(`σN² = cos²α·σs² + (sσα)²·sin²α = <b>${f(NN,3)} mm²</b>`)+
+    step(`σEN = sin α cos α (σs² − (sσα)²) = <b>${f(EN,3)} mm²</b>`)+
+    step(`<b>Answer.</b> σE = <b>${f(Math.sqrt(EE),2)} mm</b>, σN = <b>${f(Math.sqrt(NN),2)} mm</b>, σEN = <b>${f(EN,2)} mm²</b>`);
+}
+
+// ---------- Exercise 11 ----------
+function r11(){
+  const d=num("e11d"),a=parseFloat($("e11a").value),p=parseFloat($("e11p").value);
+  if(!(d>0)){ $("o11").innerHTML=bad("enter a positive movement."); return;}
+  const za=normInv(1-a/2), zb=normInv(p), sd=d/(za+zb), se=sd/Math.SQRT2;
+  $("o11").innerHTML=
+    step(`<b>Step 1.</b> z for α = ${pct(a)} (two-sided): ${f(za,3)}; z for power ${pct(p)}: ${f(zb,3)}`)+
+    step(`<b>Step 2.</b> Required σ of the difference: <span class="eq">σ<sub>d</sub> ≤ δ / (${f(za,2)} + ${f(zb,2)}) = ${f(d)} / ${f(za+zb,2)} = <b>${f(sd,2)} mm</b></span>`)+
+    step(`<b>Step 3.</b> Two equal epochs, σ<sub>d</sub> = √2·σ: <span class="eq">σ ≤ ${f(sd,2)} / 1.414 = <b>${f(se,2)} mm</b> per epoch</span>`)+
+    `<p class="note">Halving the movement to detect halves the required σ, which usually needs about four times as many measurements.</p>`;
+}
+
+// ---------- Exercise 12 ----------
+function r12(){
+  const v=num("e12v"),r=Math.round(num("e12r")),s=num("e12s"),cl=parseFloat($("e12c").value);
+  if(!(v>=0&&r>=1&&s>0)){ $("o12").innerHTML=bad("enter vᵀPv ≥ 0, r ≥ 1 and σ0² > 0."); return;}
+  const T=v/s, c=chi2inv(cl,r), s02=v/r;
+  $("o12").innerHTML=
+    step(`<b>Step 1.</b> Test statistic: <span class="eq">T = vᵀPv / σ0² = ${f(v,2)} / ${f(s,2)} = <b>${f(T,2)}</b></span>`)+
+    step(`<b>Step 2.</b> Critical value χ²<sub>${r}</sub> at ${pct(cl)}: <b>${f(c,2)}</b>. ${T>c?`${f(T,2)} > ${f(c,2)}`:`${f(T,2)} ≤ ${f(c,2)}`}.`)+
+    `<span class="verdict ${T>c?'yes':'no'}">${T>c?'Model rejected':'Model accepted'}</span>`+
+    step(`<b>Step 3.</b> Estimated variance factor: s0² = ${f(v,2)} / ${r} = ${f(s02,3)} (s0 = ${f(Math.sqrt(s02),3)})`)+
+    (T>c?step(`Check, in order: blunders (data snooping), systematic errors, a priori weights, and in multi-epoch work, real movement.`):"");
+}
+
+// ---------- Exercise 13 ----------
+function r13(){
+  const pts=$("e13p").value.split("\n").map(l=>l.split(/[,;\s]+/).filter(Boolean)).filter(a=>a.length>=3).map(a=>({n:a[0],x:+a[1],y:+a[2]})).filter(p=>isFinite(p.x)&&isFinite(p.y));
+  if(pts.length<2){ $("o13").innerHTML=bad("enter at least two points as name, x, y."); return;}
+  const k=parseInt($("e13s").value), cx=pts.reduce((a,p)=>a+p.x,0)/pts.length, cy=pts.reduce((a,p)=>a+p.y,0)/pts.length;
+  const mat=(xo,yo)=>{let rows="";pts.forEach(p=>{const x=p.x-xo,y=p.y-yo;
+      const r1=[1,0,-y,x].slice(0,k),r2=[0,1,x,y].slice(0,k);
+      rows+=`<tr><td>x<sub>${p.n}</sub></td>${r1.map(v=>`<td>${f(v,2)}</td>`).join("")}</tr><tr><td>y<sub>${p.n}</sub></td>${r2.map(v=>`<td>${f(v,2)}</td>`).join("")}</tr>`;});
+    const hd=["Shift x","Shift y","Rotation","Scale"].slice(0,k).map(h=>`<th>${h}</th>`).join("");
+    return `<table class="t"><tr><th></th>${hd}</tr>${rows}</table>`;};
+  $("o13").innerHTML=
+    step(`<b>Rule.</b> For each point: rows (1, 0, −y, x) and (0, 1, x, y); keep the first ${k} columns.`)+
+    step(`<b>Using the given coordinates:</b>`)+mat(0,0)+
+    step(`<b>Reduced to the centroid</b> (${f(cx,2)}, ${f(cy,2)}), recommended:`)+mat(cx,cy)+
+    `<p class="note">Both are valid; they differ only in the point about which the rotation is taken. Every distance (and, for the scale column, every angle) is unchanged by these movements.</p>`;
+}
+
+// ---------- wiring ----------
+const renderers={p2:r2,p3:r3,p4:r4,p5:r5,p8:r8,p9:r9,p10:r10,p11:r11,p12:r12,p13:r13};
+const defaults={};
+document.querySelectorAll(".panel").forEach(p=>{defaults[p.id]={};p.querySelectorAll("input,select,textarea").forEach(el=>defaults[p.id][el.id]=el.value);
+  p.addEventListener("input",()=>renderers[p.id]());p.addEventListener("change",()=>renderers[p.id]());});
+document.querySelectorAll(".reset").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.reset;Object.entries(defaults[id]).forEach(([k,v])=>$(k).value=v);renderers[id]();}));
+const tabs=[...document.querySelectorAll('nav.rail button')];
+function show(id){tabs.forEach(t=>t.setAttribute("aria-selected",t.dataset.p===id?"true":"false"));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===id));renderers[id]();
+  try{localStorage.setItem("p1solver-tab",id)}catch(e){}}
+tabs.forEach(t=>t.addEventListener("click",()=>show(t.dataset.p)));
+document.querySelector("nav.rail").addEventListener("keydown",e=>{const i=tabs.findIndex(t=>t.getAttribute("aria-selected")==="true");
+  if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();const n=tabs[(i+1)%tabs.length];show(n.dataset.p);n.focus();}
+  if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();const n=tabs[(i-1+tabs.length)%tabs.length];show(n.dataset.p);n.focus();}});
+// theme
+const root=document.documentElement;
+try{const th=localStorage.getItem("p1solver-theme");if(th)root.setAttribute("data-theme",th);}catch(e){}
+$("themeBtn").addEventListener("click",()=>{const dark=root.getAttribute("data-theme")?root.getAttribute("data-theme")==="dark":matchMedia("(prefers-color-scheme: dark)").matches;
+  const next=dark?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("p1solver-theme",next)}catch(e){}});
+Object.values(renderers).forEach(fn=>fn());
+let start="p2";try{const s=localStorage.getItem("p1solver-tab");if(s&&renderers[s])start=s;}catch(e){}
+show(start);
+</script>
+</body>
+</html>

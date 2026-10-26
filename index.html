@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Yam Khoon Tor. All rights reserved.
+  Companion app to "Deformation Monitoring and Analysis: Theory, Methods and
+  Practice for Surveyors and Engineers". Not to be copied for others,
+  redistributed, sold or published, in original or modified form, without
+  the written permission of the author. See COPYRIGHT.txt.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deformation Monitoring and Analysis: Interactive Apps</title>
+<style>
+:root{--paper:#F6F4EE;--ink:#1F3A5F;--text:#222;--muted:#5b6470;--rule:#d9dee5;--accent:#B3261E;--card:#fff}
+@media (prefers-color-scheme: dark){:root{--paper:#14181d;--ink:#9fc0ea;--text:#e7e9ec;--muted:#a3abb5;--rule:#2b333d;--accent:#ff8a80;--card:#1b2128}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--text);font:16px/1.55 Georgia,"Times New Roman",serif}
+.wrap{max-width:980px;margin:0 auto;padding:40px 22px 60px}
+header{border-bottom:2px solid var(--accent);padding-bottom:18px;margin-bottom:26px}
+h1{font-size:clamp(1.7rem,4vw,2.4rem);color:var(--ink);margin:0 0 6px;line-height:1.2}
+.sub{font-size:1.1rem;color:var(--ink);margin:0}
+.tagline{font-style:italic;color:var(--muted);margin:6px 0 14px}
+.author{margin:0;color:var(--text)}
+.intro{color:var(--muted);max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:22px}
+.card{display:block;background:var(--card);border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:6px;padding:16px 18px;text-decoration:none;color:inherit;transition:transform .12s, box-shadow .12s}
+.card:first-child{border-left-color:var(--accent)}
+.card:hover,.card:focus{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08);outline:none}
+.card h2{font-size:1.1rem;color:var(--ink);margin:4px 0 6px}
+.card p{font-size:.9rem;color:var(--muted);margin:0}
+.tag{font:600 .72rem/1 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--rule);font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Deformation Monitoring and Analysis</h1>
+  <p class="sub">Theory, Methods and Practice for Surveyors and Engineers</p>
+  <p class="tagline">A Practical Guide with Worked Examples and Interactive Apps</p>
+  <p class="author"><b>Yam Khoon Tor</b>, PhD, HFSISV</p>
+</header>
+<p class="intro">These are the companion apps of the book. They run in any web browser on a computer, tablet or phone, with nothing to install. Each opens with the book’s data already entered: repeat any worked example, then change the numbers to see how the results respond. Choose an app below. For use without an internet connection, <a href="https://drive.google.com/drive/folders/1hdnbyZCIyxB38ANQBXyiDlbzSPh6ubB2?usp=sharing">download the offline version</a> (one zip file for Windows or Mac).</p>
+<div class="grid">
+    <a class="card" href="one_network_explorer.html"><span class="tag">Start here</span><h2>One Network Explorer</h2><p>The book’s teaching network followed through every stage: adjustment and datum, outliers and robust estimation, two-epoch deformation analysis and many-epoch monitoring with the Kalman filter. A good place to start.</p></a>
+    <a class="card" href="part1_solver.html"><span class="tag">Part I</span><h2>Part I Solver</h2><p>Foundations: The movement test, error ellipses, datum and redundancy, the levelling loop, mean and standard deviation, 2D displacement tests, polar propagation, required precision, the global test and the null-space matrix.</p></a>
+    <a class="card" href="part2_solver.html"><span class="tag">Part II</span><h2>Part II Solver</h2><p>Least squares adjustment: Levelling weights, the adjustment of any small levelling network, redundancy and condition equations, sequential updates with the innovation test, linearization coefficients and variance component estimation.</p></a>
+    <a class="card" href="part3_solver.html"><span class="tag">Part III</span><h2>Part III Solver</h2><p>The datum problem: Datum defects, S-transformations for levelling, a two-epoch explorer that shows the running example in any datum (and can generate new epochs from any movements you choose), and the congruency test.</p></a>
+    <a class="card" href="part4_solver.html"><span class="tag">Part IV</span><h2>Part IV Solver</h2><p>Quality and outliers: Minimal detectable biases, a network analyzer in which you add blunders to any line and compare data snooping, L1, Huber, IGG III and the Danish method, the w-test, weight functions, mean versus median, and the smallest detectable movement.</p></a>
+    <a class="card" href="part5_solver.html"><span class="tag">Part V</span><h2>Part V Solver</h2><p>Static deformation analysis: Pooled variance factors, the global congruency test, single-point elimination round by round, IWST, strain analysis and building tilt with angular distortion.</p></a>
+    <a class="card" href="part6_solver.html"><span class="tag">Part VI</span><h2>Part VI Solver</h2><p>Kinematic and dynamic analysis: Kinematic models and predictions, the standard, robust and adaptive Kalman filters week by week, the HST dam model with the full 48-month data set, correlated noise, the bias from a missing annual term, and traffic-light alarms.</p></a>
+    <a class="card" href="part7_solver.html"><span class="tag">Part VII</span><h2>Part VII Solver</h2><p>Related estimation techniques: Collocation along a line, total versus ordinary least squares with a Monte Carlo simulation, ridge regularization and the Bayesian test.</p></a>
+    <a class="card" href="part8_solver.html"><span class="tag">Part VIII</span><h2>Part VIII Solver</h2><p>Sensors, practice and case studies: The laser-scanning level of detection, InSAR line-of-sight conversion, network pre-analysis (Designs A, B and C, or your own levelling network), epoch frequency, tunnel convergence and statistical tables on demand.</p></a>
+    <a class="card" href="appendixE_solver.html"><span class="tag">Appendix E</span><h2>Appendix E Solver</h2><p>Generalized inverses: Generalized inverses of any levelling network in any datum, the null-space matrix with orientation unknowns, configuration defects and the rank-tolerance pitfall.</p></a>
+</div>
+<footer>All calculations run in your web browser on this computer; no data are sent anywhere. Keep all the files of this folder together. Online versions of the same apps are linked from the book.<br><br>Copyright © 2026 Yam Khoon Tor. All rights reserved. Companion to <i>Deformation Monitoring and Analysis: Theory, Methods and Practice for Surveyors and Engineers</i>. For the reader’s own study and professional work only; not to be copied for others, redistributed, sold or published, in original or modified form, without the author’s written permission. Results are for education and guidance and should be checked independently; the author accepts no liability for their use.</footer>
+</div>
+</body>
+</html>
